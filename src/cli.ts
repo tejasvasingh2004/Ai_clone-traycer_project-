@@ -12,10 +12,11 @@ import { readdir, unlink, stat } from 'fs/promises';
 import { join } from 'path';
 import { createPlan } from './planner.js';
 import { generateCode } from './generator.js';
-import { reviewProposals, interactiveReview } from './reviewer.js';
+import { reviewProposals, interactiveReview, rejectProposal } from './reviewer.js';
 import { approveProposal, approveAll } from './approver.js';
 import { verifyCode } from './verifier.js';
 import { ensureDirectories, STAGING_DIR } from './config.js';
+import { buildContext, contextToString } from './context.js';
 
 /**
  * Check Node.js version requirement
@@ -80,13 +81,18 @@ async function main(): Promise<void> {
     .command('plan')
     .description('Create a structured plan for a coding task')
     .argument('<task>', 'Natural language description of the coding task')
-    .action(async (task: string) => {
+    .option('-g, --generate', 'Automatically generate code after creating the plan')
+    .action(async (task: string, options: { generate?: boolean }) => {
       try {
-        const plan = await createPlan(task);
+        const plan = await createPlan(task, options.generate || false);
         console.log(chalk.green.bold('\n✓ Plan created successfully!'));
         console.log(chalk.cyan(`\nPlan ID: ${plan.id}`));
         console.log(chalk.cyan(`Plan file: plans/${plan.id}.json`));
-        console.log(chalk.gray(`\n💡 Next step: Run 'traycer-mini generate plans/${plan.id}.json' to generate code`));
+        if (options.generate) {
+          console.log(chalk.gray(`\n💡 Next step: Run 'traycer-mini review' to see the generated code changes`));
+        } else {
+          console.log(chalk.gray(`\n💡 Next step: Run 'traycer-mini generate plans/${plan.id}.json' to generate code`));
+        }
       } catch (error) {
         handleError(error, 'plan');
       }
@@ -181,6 +187,22 @@ async function main(): Promise<void> {
         handleError(error, 'approve');
       }
     });
+
+  // Reject command
+  program
+    .command('reject')
+    .description('Reject a staged proposal with feedback')
+    .argument('<file>', 'File path to reject')
+    .option('--reason <reason>', 'Reason for rejection')
+    .action(async (file: string, options: { reason?: string }) => {
+      try {
+        const reason = options.reason || 'No reason provided';
+        await rejectProposal(file, reason);
+        console.log(chalk.gray(`\n💡 Next step: Run 'traycer-mini review' to see the regenerated code`));
+      } catch (error) {
+        handleError(error, 'reject');
+      }
+    });
   
   // Verify command
   program
@@ -245,6 +267,24 @@ async function main(): Promise<void> {
         console.log(chalk.green(`✓ Deleted ${deletedCount} staged proposal${deletedCount !== 1 ? 's' : ''}`));
       } catch (error) {
         handleError(error, 'clean');
+      }
+    });
+
+  // Context command
+  program
+    .command('context')
+    .description('Show what context would be sent for a given task')
+    .argument('<task>', 'Natural language description of the task')
+    .action(async (task: string) => {
+      try {
+        console.log(chalk.bold.blue('\n📊 Building context for task:'));
+        console.log(chalk.gray(task));
+        console.log('');
+        
+        const context = await buildContext(task);
+        console.log(chalk.bold.cyan(contextToString(context)));
+      } catch (error) {
+        handleError(error, 'context');
       }
     });
   

@@ -18,7 +18,7 @@ describe('sumArray', () => {
     });
 
     it('should handle mixed positive and negative numbers', () => {
-        expect(sumArray([-1, 2, -3, 4])).toBe2);
+        expect(sumArray([-1, 2, -3, 4])).toBe(2);
     });
 
     it('should handle large numbers', () => {

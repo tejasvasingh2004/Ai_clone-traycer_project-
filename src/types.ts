@@ -17,6 +17,19 @@ export interface Plan {
   createdAt: string;
   /** Unique identifier (e.g., slugified task name + timestamp) */
   id: string;
+  /** Rationale for why each file needs changing */
+  rationale?: string;
+  /** Files in order they should be generated (dependency ordering) */
+  dependencyOrder?: string[];
+  /** Captured context at plan time */
+  contextSnapshot?: {
+    projectSummary: string;
+    existingPatterns: {
+      importStyle: string;
+      namingConvention: string;
+      testFramework: string;
+    };
+  };
 }
 
 /**
@@ -46,6 +59,15 @@ export interface StagedProposal extends CodeProposal {
   planId: string;
   /** Approval status */
   approved: boolean;
+  /** History of rejections with reasons */
+  rejectionHistory?: Array<{
+    reason: string;
+    timestamp: string;
+  }>;
+  /** Which files were used as context during generation */
+  generationContext?: string[];
+  /** AI's own assessment of the generated code */
+  aiReviewSummary?: string;
 }
 
 /**

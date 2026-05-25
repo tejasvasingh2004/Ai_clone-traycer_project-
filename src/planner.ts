@@ -6,12 +6,25 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { writeFile } from 'fs/promises';
+import { writeFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
 import { Plan } from './types.js';
 import { getAIConfig, ensureDirectories, PLANS_DIR } from './config.js';
+import { generateCode } from './generator.js';
+import { extractJSON } from './utils/jsonUtils.js';
+import { buildContext, contextToString } from './context.js';
+
+/**
+ * Get all files in the project directory recursively
+ * @param dir - Directory to scan
+ * @returns Promise<string[]> - Array of file paths relative to dir
+ */
+async function getProjectFiles(dir: string): Promise<string[]> {
+  const files = await readdir(dir, { recursive: true });
+  return files.map(f => f.toString()).filter(f => !f.includes('node_modules') && !f.includes('.git'));
+}
 
 /**
  * Slugify a string to create a safe filename
@@ -30,20 +43,33 @@ function slugify(text: string): string {
 /**
  * Create a structured plan for a coding task using AI
  * @param taskDescription - Natural language description of the coding task
+ * @param autoGenerateCode - Whether to automatically generate code after creating the plan
  * @returns Promise<Plan> - The generated plan object
  */
-export async function createPlan(taskDescription: string): Promise<Plan> {
-  const spinner = ora('Creating plan...').start();
+export async function createPlan(taskDescription: string, autoGenerateCode: boolean = false): Promise<Plan> {
+  const spinner = ora('Building context...').start();
 
   try {
+    // Build context using Context Engine
+    const context = await buildContext(taskDescription);
+    
+    spinner.text = 'Creating plan...';
+
     // Get AI configuration
     const config = getAIConfig();
 
-    // Construct system prompt
-    const systemPrompt = 
-      'You are an expert software architect. Given a coding task, break it down into clear, actionable steps and identify all files that need to be created or modified.\n' +
-      'Return ONLY valid JSON matching this schema: {taskName: string, steps: string[], filesToModify: string[]}\n' +
-      'Each step should be specific and implementable. File paths should be relative to project root.';
+    // Construct enhanced system prompt with context
+    const systemPrompt =
+      `You are an expert software architect. Given a coding task and the project context, break it down into clear, actionable steps and identify all files that need to be created or modified.\n\n` +
+      `PROJECT CONTEXT:\n${contextToString(context)}\n\n` +
+      `IMPORTANT:\n` +
+      `- Order steps by dependency (create types/interfaces before using them)\n` +
+      `- Consider the existing code patterns: ${context.existingPatterns.importStyle} imports, ${context.existingPatterns.namingConvention} naming\n` +
+      `- Check the import graph to avoid breaking existing dependencies\n` +
+      `- Return ONLY valid JSON matching this schema: {taskName: string, steps: string[], filesToModify: string[], rationale: string, dependencyOrder: string[]}\n` +
+      `- Each step should be specific and implementable. File paths should be relative to project root.\n` +
+      `- rationale should explain why each file needs changing\n` +
+      `- dependencyOrder should list files in the order they should be generated (respecting dependencies)`;
 
     // Construct user prompt
     const userPrompt = `Task: ${taskDescription}`;
@@ -72,7 +98,7 @@ export async function createPlan(taskDescription: string): Promise<Plan> {
       const message = await anthropic.messages.create({
         model: config.model,
         temperature: config.temperature,
-        max_tokens: 2000,
+        max_tokens: 4000,
         system: systemPrompt,
         messages: [
           { role: 'user', content: userPrompt }
@@ -95,7 +121,7 @@ export async function createPlan(taskDescription: string): Promise<Plan> {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: config.temperature ?? 0.7,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 4096,
         },
       });
 
@@ -103,9 +129,16 @@ export async function createPlan(taskDescription: string): Promise<Plan> {
     }
 
     // Parse JSON response
-    let parsedResponse: { taskName?: string; steps?: string[]; filesToModify?: string[] };
+    let parsedResponse: { 
+      taskName?: string; 
+      steps?: string[]; 
+      filesToModify?: string[];
+      rationale?: string;
+      dependencyOrder?: string[];
+    };
     try {
-      parsedResponse = JSON.parse(responseText);
+      const extractedJSON = extractJSON(responseText);
+      parsedResponse = JSON.parse(extractedJSON);
     } catch (error) {
       spinner.fail(chalk.red('Failed to parse AI response as JSON'));
       throw new Error(`Invalid JSON response from AI: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -117,18 +150,43 @@ export async function createPlan(taskDescription: string): Promise<Plan> {
       throw new Error('AI response must include taskName, steps, and filesToModify');
     }
 
+    // Auto-detect affected files via import graph
+    let allFilesToModify = [...parsedResponse.filesToModify];
+    for (const file of parsedResponse.filesToModify) {
+      const dependencies = context.importGraph[file] || [];
+      for (const dep of dependencies) {
+        if (!allFilesToModify.includes(dep)) {
+          allFilesToModify.push(dep);
+        }
+      }
+    }
+
     // Generate unique plan ID
     const timestamp = Date.now();
     const slugifiedTask = slugify(parsedResponse.taskName);
     const planId = `${slugifiedTask}-${timestamp}`;
 
-    // Create Plan object
+    // Rebuild dependencyOrder from final file set, appending inferred dependencies in deterministic order
+    const baseOrder = parsedResponse.dependencyOrder || parsedResponse.filesToModify;
+    const inferredDependencies = allFilesToModify.filter(file => !baseOrder.includes(file));
+    // Sort inferred dependencies deterministically (alphabetically)
+    inferredDependencies.sort((a, b) => a.localeCompare(b));
+    // Combine: AI-provided order first, then inferred dependencies
+    const finalDependencyOrder = [...baseOrder, ...inferredDependencies];
+
+    // Create Plan object with enhanced schema
     const plan: Plan = {
       id: planId,
       taskName: parsedResponse.taskName,
       steps: parsedResponse.steps,
-      filesToModify: parsedResponse.filesToModify,
-      createdAt: new Date().toISOString()
+      filesToModify: allFilesToModify,
+      createdAt: new Date().toISOString(),
+      rationale: parsedResponse.rationale,
+      dependencyOrder: finalDependencyOrder,
+      contextSnapshot: {
+        projectSummary: context.projectSummary,
+        existingPatterns: context.existingPatterns
+      }
     };
 
     // Ensure plans directory exists
@@ -140,6 +198,19 @@ export async function createPlan(taskDescription: string): Promise<Plan> {
 
     // Stop spinner and show success
     spinner.succeed(chalk.green(`Plan created successfully: ${planPath}`));
+
+    // Automatically generate code if requested
+    if (autoGenerateCode) {
+      spinner.start('Generating code...');
+      try {
+        const proposals = await generateCode(planPath);
+        spinner.succeed(chalk.green(`Code generation completed: ${proposals.length} proposal${proposals.length !== 1 ? 's' : ''} created`));
+      } catch (error) {
+        spinner.fail(chalk.red('Code generation failed'));
+        console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        // Don't throw error here - plan was created successfully
+      }
+    }
 
     return plan;
 

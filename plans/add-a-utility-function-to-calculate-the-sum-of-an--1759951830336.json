@@ -1,0 +1,19 @@
+{
+  "id": "add-a-utility-function-to-calculate-the-sum-of-an--1759951830336",
+  "taskName": "Add a utility function to calculate the sum of an array of numbers",
+  "steps": [
+    "Create a new file named 'mathUtils.js' in the 'src/utils' directory.",
+    "In 'mathUtils.js', define a function 'sumArray' that takes an array of numbers as an argument.",
+    "Implement the 'sumArray' function to return the sum of the numbers in the array using the reduce method.",
+    "Export the 'sumArray' function from 'mathUtils.js'.",
+    "Create a test file named 'mathUtils.test.js' in the 'src/utils' directory.",
+    "In 'mathUtils.test.js', import the 'sumArray' function.",
+    "Write test cases to verify that 'sumArray' correctly calculates the sum of various arrays of numbers.",
+    "Run the tests to ensure that the implementation is correct."
+  ],
+  "filesToModify": [
+    "src/utils/mathUtils.js",
+    "src/utils/mathUtils.test.js"
+  ],
+  "createdAt": "2025-10-08T19:30:30.336Z"
+}

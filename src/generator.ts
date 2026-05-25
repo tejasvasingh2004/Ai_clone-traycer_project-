@@ -13,6 +13,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { Plan, StagedProposal } from './types.js';
 import { getAIConfig, ensureDirectories, STAGING_DIR, STAGING_INDEX_FILE } from './config.js';
+import { extractCode } from './utils/jsonUtils.js';
 
 /**
  * Convert file path to safe filename for staging
@@ -29,9 +30,10 @@ function sanitizeFilename(filePath: string): string {
 /**
  * Generate code based on a plan file
  * @param planPath - Path to the plan JSON file
+ * @param rejectionFeedback - Optional feedback from previous rejection
  * @returns Array of staged proposals
  */
-export async function generateCode(planPath: string): Promise<StagedProposal[]> {
+export async function generateCode(planPath: string, rejectionFeedback?: string): Promise<StagedProposal[]> {
   const spinner = ora('Reading plan...').start();
 
   try {
@@ -73,8 +75,11 @@ export async function generateCode(planPath: string): Promise<StagedProposal[]> 
       anthropicClient = new Anthropic({ apiKey: config.apiKey });
     }
 
-    // 6. For each file in plan.filesToModify
-    for (const filePath of plan.filesToModify) {
+    // 6. Use dependencyOrder if available, otherwise use filesToModify
+    const filesToGenerate = plan.dependencyOrder || plan.filesToModify;
+
+    // 7. For each file in dependency order
+    for (const filePath of filesToGenerate) {
       spinner.start(chalk.cyan(`Generating code for ${filePath}...`));
 
       try {
@@ -111,6 +116,23 @@ export async function generateCode(planPath: string): Promise<StagedProposal[]> 
         
         if (fileExists) {
           userPrompt += `Current file content:\n\`\`\`typescript\n${existingContent}\n\`\`\`\n\n`;
+        }
+
+        // Add context from previously generated files (multi-file coherence)
+        if (stagedProposals.length > 0) {
+          userPrompt += `Context from previously generated files:\n`;
+          for (const proposal of stagedProposals) {
+            userPrompt += `\n--- ${proposal.filePath} ---\n`;
+            userPrompt += proposal.newContent;
+            userPrompt += '\n';
+          }
+          userPrompt += '\n';
+        }
+
+        // Add rejection feedback if provided
+        if (rejectionFeedback) {
+          userPrompt += `REJECTION FEEDBACK: Previous attempt was rejected because: ${rejectionFeedback}\n`;
+          userPrompt += `Please fix the issues mentioned above.\n\n`;
         }
         
         userPrompt += `Generate the complete TypeScript code for this file. Return only the code, no explanations.`;
@@ -163,13 +185,11 @@ export async function generateCode(planPath: string): Promise<StagedProposal[]> 
 }
 
         // 8. Extract generated code (trim whitespace, remove markdown code fences)
-        generatedCode = generatedCode.trim();
-        
-        // Remove markdown code fences if present
-        const codeBlockRegex = /^```(?:typescript|ts|javascript|js)?\n([\s\S]*?)\n```$/;
-        const match = generatedCode.match(codeBlockRegex);
-        if (match) {
-          generatedCode = match[1].trim();
+        generatedCode = extractCode(generatedCode);
+
+        // Validate that extracted content is non-empty
+        if (!generatedCode || generatedCode.trim().length === 0) {
+          throw new Error('Generated code is empty after extraction');
         }
 
         // 9. Generate diff
@@ -195,6 +215,9 @@ export async function generateCode(planPath: string): Promise<StagedProposal[]> 
         const sanitizedFilename = sanitizeFilename(filePath);
         const proposalId = `${plan.id}-${sanitizedFilename}-${timestamp}`;
 
+        // Track generation context (which previously generated files were used)
+        const generationContext = stagedProposals.map(p => p.filePath);
+
         const proposal: StagedProposal = {
           id: proposalId,
           planId: plan.id,
@@ -204,6 +227,11 @@ export async function generateCode(planPath: string): Promise<StagedProposal[]> 
           operation: fileExists ? 'modify' : 'create',
           approved: false,
           createdAt: new Date().toISOString(),
+          generationContext,
+          rejectionHistory: rejectionFeedback ? [{
+            reason: rejectionFeedback,
+            timestamp: new Date().toISOString()
+          }] : undefined
         };
 
         // 11. Write proposal to staging/{proposalId}.json
@@ -234,8 +262,12 @@ export async function generateCode(planPath: string): Promise<StagedProposal[]> 
       stagingIndex = [];
     }
 
-    // Append new proposal IDs with metadata
+    // Replace previous staged proposals for the same file when regenerating
     for (const proposal of stagedProposals) {
+      // Remove existing entries for the same filePath
+      stagingIndex = stagingIndex.filter(entry => entry.filePath !== proposal.filePath);
+      
+      // Add the new proposal entry
       stagingIndex.push({
         id: proposal.id,
         planId: proposal.planId,

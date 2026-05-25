@@ -55,9 +55,14 @@ async function findProposal(filePathOrProposalId: string): Promise<StagingIndexE
   // Try to match by ID first
   let entry = index.find(e => e.id === filePathOrProposalId);
   
-  // If not found, try to match by file path
+  // If not found, try to match by file path - prefer the latest version
   if (!entry) {
-    entry = index.find(e => e.filePath === filePathOrProposalId);
+    const matchingEntries = index.filter(e => e.filePath === filePathOrProposalId);
+    if (matchingEntries.length > 0) {
+      // Sort by createdAt descending to get the latest proposal
+      matchingEntries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      entry = matchingEntries[0];
+    }
   }
   
   return entry || null;

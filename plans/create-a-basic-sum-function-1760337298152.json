@@ -1,0 +1,17 @@
+{
+  "id": "create-a-basic-sum-function-1760337298152",
+  "taskName": "create a basic sum function",
+  "steps": [
+    "Navigate to the src/utils directory.",
+    "Create a new file named sum.js to implement the sum function.",
+    "In sum.js, define a function named sum that takes an array of numbers as an argument and returns the sum of those numbers.",
+    "Create a corresponding test file named sum.test.js in the same directory.",
+    "In sum.test.js, write unit tests to verify the functionality of the sum function using a testing framework (e.g., Jest).",
+    "Ensure that the new files are included in the build process by updating any necessary configuration files if required."
+  ],
+  "filesToModify": [
+    "src/utils/sum.js",
+    "src/utils/sum.test.js"
+  ],
+  "createdAt": "2025-10-13T06:34:58.152Z"
+}

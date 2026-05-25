@@ -1,0 +1,16 @@
+{
+  "id": "improve-terminal-ui-in-cli-1760046285517",
+  "taskName": "Improve Terminal UI in CLI",
+  "steps": [
+    "Review the existing terminal UI implementation in src/cli.ts.",
+    "Identify areas where the UI can be improved for better user experience.",
+    "Implement changes to enhance the terminal UI in src/cli.ts.",
+    "Test the new UI changes to ensure they work as expected.",
+    "Update the README.md file to reflect the new UI features and usage instructions."
+  ],
+  "filesToModify": [
+    "src/cli.ts",
+    "README.md"
+  ],
+  "createdAt": "2025-10-09T21:44:45.517Z"
+}
