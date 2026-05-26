@@ -59,6 +59,18 @@ async function generateAIReviewSummary(proposal: StagedProposal): Promise<string
         max_tokens: 300,
       });
       summary = response.choices[0]?.message?.content || '';
+    } else if (config.provider === 'groq') {
+      const groq = new OpenAI({
+        apiKey: config.apiKey,
+        baseURL: 'https://api.groq.com/openai/v1',
+      });
+      const response = await groq.chat.completions.create({
+        model: config.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 300,
+      });
+      summary = response.choices[0]?.message?.content || '';
     } else if (config.provider === 'anthropic') {
       const anthropic = new Anthropic({ apiKey: config.apiKey });
       const response = await anthropic.messages.create({

@@ -25,6 +25,7 @@ export function getAIConfig(): GeneratorConfig {
   const openaiKey = process.env.OPENAI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
 
   // Check for OpenAI API key first
   if (openaiKey) {
@@ -59,9 +60,20 @@ export function getAIConfig(): GeneratorConfig {
     };
   }
 
+  // Check for Groq API key
+  if (groqKey) {
+    const model = process.env.AI_MODEL || 'llama3-8b-8192';
+    return {
+      provider: 'groq' as AIProvider,
+      apiKey: groqKey,
+      model,
+      temperature: 0.3,
+    };
+  }
+
   // No API key found
   throw new Error(
-    'No API key found. Please set either OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY/GEMINI_API_KEY in your .env file.\n' +
+    'No API key found. Please set OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY/GEMINI_API_KEY, or GROQ_API_KEY in your .env file.\n' +
     'Copy .env.example to .env and add your API key.'
   );
 }

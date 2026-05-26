@@ -73,7 +73,7 @@ export interface StagedProposal extends CodeProposal {
 /**
  * Supported AI providers
  */
-export type AIProvider = 'openai' | 'anthropic' | 'google';
+export type AIProvider = 'openai' | 'anthropic' | 'google' | 'groq';
 
 /**
  * Configuration for AI code generation

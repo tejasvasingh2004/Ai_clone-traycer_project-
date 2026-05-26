@@ -91,6 +91,23 @@ export async function createPlan(taskDescription: string, autoGenerateCode: bool
       });
 
       responseText = completion.choices[0]?.message?.content || '{}';
+    } else if (config.provider === 'groq') {
+      const groq = new OpenAI({
+        apiKey: config.apiKey,
+        baseURL: 'https://api.groq.com/openai/v1',
+      });
+
+      const completion = await groq.chat.completions.create({
+        model: config.model,
+        temperature: config.temperature,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
+      });
+
+      responseText = completion.choices[0]?.message?.content || '{}';
     } else if (config.provider === 'anthropic') {
       // Anthropic
       const anthropic = new Anthropic({ apiKey: config.apiKey });

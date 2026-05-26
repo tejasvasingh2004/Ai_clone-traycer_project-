@@ -69,6 +69,11 @@ export async function generateCode(planPath: string, rejectionFeedback?: string)
 
     if (config.provider === 'openai') {
       openaiClient = new OpenAI({ apiKey: config.apiKey });
+    } else if (config.provider === 'groq') {
+      openaiClient = new OpenAI({
+        apiKey: config.apiKey,
+        baseURL: 'https://api.groq.com/openai/v1',
+      });
     } else if (config.provider === 'google') {
       googleClient = new GoogleGenerativeAI(config.apiKey);
     } else if (config.provider === 'anthropic') {
@@ -140,7 +145,7 @@ export async function generateCode(planPath: string, rejectionFeedback?: string)
         // 7. Call appropriate AI provider
         let generatedCode = '';
 
-        if (config.provider === 'openai' && openaiClient) {
+        if ((config.provider === 'openai' || config.provider === 'groq') && openaiClient) {
           const response = await openaiClient.chat.completions.create({
             model: config.model,
             messages: [
