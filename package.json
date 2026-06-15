@@ -13,7 +13,7 @@
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "server": "tsx server/api.ts",
-    "dashboard": "cd dashboard && npm run dev",
+    "dashboard": "cd dashboard/traycer-mini-frontend && npm run dev",
     "dev:full": "concurrently \"npm run server\" \"npm run dashboard\""
   },
   "keywords": [

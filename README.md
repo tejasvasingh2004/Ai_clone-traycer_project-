@@ -45,22 +45,26 @@ Traycer-mini is a TypeScript CLI application that demonstrates a complete AI-ass
 
 ## ⚙️ Configuration
 
-Traycer-mini requires an API key from either OpenAI or Anthropic. Create a `.env` file in the project root:
+Traycer-mini requires an API key from one supported provider. Create a `.env` file in the project root:
 
 ```env
 # Choose one AI provider:
 OPENAI_API_KEY=your_openai_api_key_here
 # OR
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
+# OR
+GROQ_API_KEY=your_groq_api_key_here
 
 # Optional: specify model (defaults shown below)
-# AI_MODEL=gpt-4-turbo
+# AI_MODEL=llama-3.3-70b-versatile
 ```
 
 ### Model Defaults
 
-- **OpenAI**: `gpt-4-turbo`
+- **OpenAI**: `gpt-4o-mini`
 - **Anthropic**: `claude-3-5-sonnet-20241022`
+- **Google**: `gemini-pro`
+- **Groq**: `llama-3.3-70b-versatile`
 
 You can override these defaults by setting the `AI_MODEL` environment variable.
 
@@ -333,7 +337,7 @@ npm run build
 - You've exceeded your API rate limit
 - Wait a few minutes before retrying
 - Consider upgrading your API plan for higher limits
-- Check your API usage dashboard (OpenAI or Anthropic)
+- Check your API usage dashboard for the provider you are using
 
 ### Generated Code Issues
 
@@ -349,7 +353,7 @@ npm run build
 
 - **AI-generated code requires review** - Always review diffs before approving changes
 - **Best with TypeScript projects** - Designed for TypeScript codebases with proper configuration
-- **Requires valid API keys** - Must have access to OpenAI or Anthropic APIs
+- **Requires valid API keys** - Must have access to a supported provider API
 - **Prompt quality matters** - Clear, specific task descriptions produce better results
 - **Context limitations** - AI models have token limits; very large files may be truncated
 - **No git integration** - Does not automatically commit changes (use git manually)

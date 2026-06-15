@@ -57,6 +57,8 @@ export async function createPlan(taskDescription: string, autoGenerateCode: bool
 
     // Get AI configuration
     const config = getAIConfig();
+    const model = config.model;
+    console.log("Using model:", model);
 
     // Construct enhanced system prompt with context
     const systemPrompt =

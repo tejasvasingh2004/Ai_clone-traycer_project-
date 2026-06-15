@@ -62,7 +62,7 @@ export function getAIConfig(): GeneratorConfig {
 
   // Check for Groq API key
   if (groqKey) {
-    const model = process.env.AI_MODEL || 'llama3-8b-8192';
+    const model = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
     return {
       provider: 'groq' as AIProvider,
       apiKey: groqKey,

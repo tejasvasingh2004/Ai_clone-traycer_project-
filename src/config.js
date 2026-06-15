@@ -58,6 +58,9 @@ function getAIConfig() {
     // No API key found
     throw new Error('No API key found. Please set either OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY/GEMINI_API_KEY in your .env file.\n' +
         'Copy .env.example to .env and add your API key.');
+        console.log("CONFIG LOADED");
+console.log("Provider:", "groq");
+console.log("Model:", model);
 }
 /**
  * Ensure required directories exist
@@ -65,5 +68,5 @@ function getAIConfig() {
  */
 function ensureDirectories() {
     (0, fs_1.mkdirSync)(exports.PLANS_DIR, { recursive: true });
-    (0, fs_1.mkdirSync)(exports.STAGING_DIR, { recursive: true });
+        var model = process.env.AI_MODEL || 'llama-3.3-70b-versatile';
 }
