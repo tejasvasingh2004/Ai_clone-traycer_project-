@@ -10,6 +10,7 @@ import { join } from 'path';
 import { PLANS_DIR, STAGING_INDEX_FILE } from '../src/config.js';
 import plansRouter from './routes/plans.js';
 import proposalsRouter from './routes/proposals.js';
+import repositoriesRouter from './routes/repositories.js';
 import verifyRouter from './routes/verify.js';
 import { registerSSEClient, removeSSEClient, setupSSEResponse } from './sse.js';
 
@@ -31,6 +32,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Mount route modules
 app.use('/api', plansRouter);
 app.use('/api', proposalsRouter);
+app.use('/api', repositoriesRouter);
 app.use('/api', verifyRouter);
 
 // ==================== STATUS ENDPOINT ====================
