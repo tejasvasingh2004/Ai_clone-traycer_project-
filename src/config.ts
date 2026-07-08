@@ -15,6 +15,8 @@ dotenv.config();
 export const PLANS_DIR = './plans';
 export const STAGING_DIR = './staging';
 export const STAGING_INDEX_FILE = './staging/index.json';
+export const REPOS_DIR = './repositories';
+export const REPOS_INDEX_FILE = './repositories/index.json';
 
 /**
  * Get AI configuration from environment variables
@@ -85,4 +87,5 @@ export function getAIConfig(): GeneratorConfig {
 export function ensureDirectories(): void {
   mkdirSync(PLANS_DIR, { recursive: true });
   mkdirSync(STAGING_DIR, { recursive: true });
+  mkdirSync(REPOS_DIR, { recursive: true });
 }

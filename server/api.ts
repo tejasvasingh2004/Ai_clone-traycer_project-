@@ -3,11 +3,10 @@
  * Wraps existing backend modules as HTTP endpoints
  */
 
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { readFile, readdir } from 'fs/promises';
-import { join } from 'path';
-import { PLANS_DIR, STAGING_INDEX_FILE } from '../src/config.js';
+import prisma from '../src/db.ts';
 import plansRouter from './routes/plans.js';
 import proposalsRouter from './routes/proposals.js';
 import repositoriesRouter from './routes/repositories.js';
@@ -43,22 +42,11 @@ app.use('/api', verifyRouter);
  */
 app.get('/api/status', async (req, res) => {
   try {
-    // Count plans
-    let planCount = 0;
-    try {
-      const planFiles = await readdir(PLANS_DIR);
-      planCount = planFiles.filter(f => f.endsWith('.json')).length;
-    } catch {}
-
-    // Count proposals
-    let proposalCount = 0;
-    let approvedCount = 0;
-    try {
-      const indexContent = await readFile(STAGING_INDEX_FILE, 'utf-8');
-      const indexData = JSON.parse(indexContent);
-      proposalCount = indexData.length;
-      approvedCount = indexData.filter((e: any) => e.approved).length;
-    } catch {}
+    const planCount = await prisma.plan.count();
+    const proposalCount = await prisma.proposal.count();
+    const approvedCount = await prisma.proposal.count({
+      where: { approved: true }
+    });
 
     res.json({
       plans: planCount,
@@ -99,8 +87,39 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ==================== DATABASE INITIALIZATION ====================
+
+/**
+ * Initialize default data in the database on server startup
+ */
+async function initDatabase() {
+  // Test connection to the database explicitly
+  await prisma.$queryRaw`SELECT 1`;
+
+  const defaultWorkspace = await prisma.workspace.findUnique({
+    where: { id: 'default' }
+  });
+  if (!defaultWorkspace) {
+    await prisma.workspace.create({
+      data: {
+        id: 'default',
+        name: 'Default Workspace',
+        description: 'Automatically created default workspace',
+      }
+    });
+    console.log('✓ Default workspace initialized in database.');
+  }
+}
+
 // ==================== START SERVER ====================
 
-app.listen(PORT, () => {
-  console.log(`🚀 Traycer-mini API server running on http://localhost:${PORT}`);
-});
+initDatabase()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Traycer-mini API server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error('❌ Critical database error on startup. Aborting server launch:', error);
+    process.exit(1);
+  });

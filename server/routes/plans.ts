@@ -1,20 +1,32 @@
+// server/routes/plans.ts
 /**
- * Plan-related endpoints
+ * Plan-related endpoints using Prisma
  */
 
 import { Router, Request, Response } from 'express';
 import { createPlan } from '../../src/planner.js';
-import { readFile, readdir } from 'fs/promises';
-import { join } from 'path';
-import { PLANS_DIR } from '../../src/config.js';
-import { Plan } from '../../src/types.js';
 import { sendProgress, removeSSEClient } from '../sse.js';
+import prisma from '../../src/db.ts';
 
 const router = Router();
 
 /**
+ * Helper to parse stringified JSON fields from database Plan record to match frontend expectations
+ */
+function parseDbPlan(dbPlan: any) {
+  if (!dbPlan) return null;
+  return {
+    ...dbPlan,
+    steps: dbPlan.steps ? JSON.parse(dbPlan.steps) : [],
+    filesToModify: dbPlan.filesToModify ? JSON.parse(dbPlan.filesToModify) : [],
+    dependencyOrder: dbPlan.dependencyOrder ? JSON.parse(dbPlan.dependencyOrder) : undefined,
+    contextSnapshot: dbPlan.contextSnapshot ? JSON.parse(dbPlan.contextSnapshot) : undefined,
+  };
+}
+
+/**
  * POST /api/plan
- * Create a new plan from task description
+ * Create a new plan and persist with Prisma
  */
 router.post('/plan', async (req: Request, res: Response) => {
   try {
@@ -28,14 +40,32 @@ router.post('/plan', async (req: Request, res: Response) => {
       sendProgress(operationId, { type: 'progress', message: 'Building context...' });
     }
 
+    // Existing planner returns a Plan object
     const plan = await createPlan(taskDescription, autoGenerate);
 
+    // Persist the plan in the database
+    const dbPlan = await prisma.plan.create({
+      data: {
+        id: plan.id,
+        workspaceId: 'default', // Using 'default' as the workspace placeholder
+        taskName: plan.taskName,
+        taskDescription: taskDescription,
+        steps: JSON.stringify(plan.steps),
+        filesToModify: JSON.stringify(plan.filesToModify),
+        rationale: plan.rationale,
+        dependencyOrder: plan.dependencyOrder ? JSON.stringify(plan.dependencyOrder) : null,
+        contextSnapshot: plan.contextSnapshot ? JSON.stringify(plan.contextSnapshot) : null,
+      }
+    });
+
+    const parsedPlan = parseDbPlan(dbPlan);
+
     if (operationId) {
-      sendProgress(operationId, { type: 'complete', plan });
+      sendProgress(operationId, { type: 'complete', plan: parsedPlan });
       removeSSEClient(operationId);
     }
 
-    res.json(plan);
+    res.json(parsedPlan);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     if (req.body.operationId) {
@@ -48,25 +78,12 @@ router.post('/plan', async (req: Request, res: Response) => {
 
 /**
  * GET /api/plans
- * List all saved plans
+ * List all saved plans from the database
  */
 router.get('/plans', async (req: Request, res: Response) => {
   try {
-    const files = await readdir(PLANS_DIR);
-    const plans: Plan[] = [];
-
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const content = await readFile(join(PLANS_DIR, file), 'utf-8');
-        const plan = JSON.parse(content);
-        plans.push(plan);
-      }
-    }
-
-    // Sort by creation date descending
-    plans.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    res.json(plans);
+    const plans = await prisma.plan.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json(plans.map(parseDbPlan));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ error: message });
@@ -75,17 +92,18 @@ router.get('/plans', async (req: Request, res: Response) => {
 
 /**
  * GET /api/plans/:id
- * Get a specific plan
+ * Retrieve a specific plan by ID
  */
 router.get('/plans/:id', async (req: Request, res: Response) => {
   try {
-    const planPath = join(PLANS_DIR, `${req.params.id}.json`);
-    const content = await readFile(planPath, 'utf-8');
-    const plan = JSON.parse(content);
-    res.json(plan);
+    const plan = await prisma.plan.findUnique({ where: { id: req.params.id } });
+    if (!plan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+    res.json(parseDbPlan(plan));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    res.status(404).json({ error: message });
+    res.status(500).json({ error: message });
   }
 });
 
