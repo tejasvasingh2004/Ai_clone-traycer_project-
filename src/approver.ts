@@ -117,12 +117,23 @@ export async function approveProposal(
     // Ensure target directory exists
     const targetDir = dirname(proposal.filePath);
     await mkdir(targetDir, { recursive: true });
+
+    // Read the current content of the file if it exists and we're modifying it
+    let originalContent: string | null = null;
+    if (proposal.operation === 'modify') {
+      try {
+        originalContent = await readFile(proposal.filePath, 'utf-8');
+      } catch {}
+    }
     
     // Write new content to target file
     await writeFile(proposal.filePath, proposal.newContent, 'utf-8');
     
     // Update proposal status
     proposal.approved = true;
+    if (originalContent !== null) {
+      (proposal as any).originalContent = originalContent;
+    }
     await writeFile(proposalPath, JSON.stringify(proposal, null, 2), 'utf-8');
     
     // Update staging index

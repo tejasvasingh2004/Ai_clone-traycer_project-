@@ -57,6 +57,7 @@ async function syncStagingToDb(): Promise<void> {
           createdAt: new Date(prop.createdAt),
           generationContext: prop.generationContext ? JSON.stringify(prop.generationContext) : null,
           rejectionHistory: prop.rejectionHistory ? JSON.stringify(prop.rejectionHistory) : null,
+          originalContent: prop.originalContent || null,
         },
         create: {
           id: prop.id,
@@ -69,6 +70,7 @@ async function syncStagingToDb(): Promise<void> {
           createdAt: new Date(prop.createdAt),
           generationContext: prop.generationContext ? JSON.stringify(prop.generationContext) : null,
           rejectionHistory: prop.rejectionHistory ? JSON.stringify(prop.rejectionHistory) : null,
+          originalContent: prop.originalContent || null,
         },
       });
     } catch (err) {
@@ -162,6 +164,7 @@ router.get('/proposals', async (req: Request, res: Response) => {
       createdAt: p.createdAt.toISOString(),
       generationContext: p.generationContext ? JSON.parse(p.generationContext) : undefined,
       rejectionHistory: p.rejectionHistory ? JSON.parse(p.rejectionHistory) : undefined,
+      originalContent: p.originalContent || null,
     }));
 
     res.json(proposals);
@@ -196,6 +199,7 @@ router.get('/proposals/:id', async (req: Request, res: Response) => {
       createdAt: p.createdAt.toISOString(),
       generationContext: p.generationContext ? JSON.parse(p.generationContext) : undefined,
       rejectionHistory: p.rejectionHistory ? JSON.parse(p.rejectionHistory) : undefined,
+      originalContent: p.originalContent || null,
     };
 
     res.json(proposal);
@@ -265,6 +269,73 @@ router.post('/reject/:id', async (req: Request, res: Response) => {
     await syncStagingToDb();
 
     res.json({ success: true, id: req.params.id });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/rollback/:id
+ * Rollback an approved proposal: restores previous file contents and updates status.
+ */
+router.post('/rollback/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Find proposal
+    const proposal = await prisma.proposal.findUnique({ where: { id } });
+    if (!proposal) {
+      return res.status(404).json({ error: 'Proposal not found' });
+    }
+
+    if (!proposal.approved) {
+      return res.status(400).json({ error: 'Proposal is not approved/deployed' });
+    }
+
+    // Rollback filesystem content
+    const filePath = proposal.filePath;
+    if (proposal.operation === 'create') {
+      try {
+        await unlink(filePath);
+      } catch (err) {
+        // Ignore if file doesn't exist
+      }
+    } else {
+      if (proposal.originalContent !== null) {
+        await writeFile(filePath, proposal.originalContent, 'utf-8');
+      } else {
+        return res.status(400).json({ error: 'Original content was not captured for this proposal, cannot rollback' });
+      }
+    }
+
+    // Update proposal to not approved
+    await prisma.proposal.update({
+      where: { id },
+      data: { approved: false }
+    });
+
+    // Mirror to staging filesystem JSON file
+    try {
+      const proposalPath = join(STAGING_DIR, `${id}.json`);
+      const content = await readFile(proposalPath, 'utf-8');
+      const prop = JSON.parse(content);
+      prop.approved = false;
+      await writeFile(proposalPath, JSON.stringify(prop, null, 2), 'utf-8');
+
+      // Update staging index.json
+      const indexContent = await readFile(STAGING_INDEX_FILE, 'utf-8');
+      const indexData = JSON.parse(indexContent);
+      const indexEntry = indexData.find((e: any) => e.id === id);
+      if (indexEntry) {
+        indexEntry.approved = false;
+        await writeFile(STAGING_INDEX_FILE, JSON.stringify(indexData, null, 2), 'utf-8');
+      }
+    } catch (e) {
+      console.error('Error updating staging files on rollback:', e);
+    }
+
+    res.json({ success: true, id });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ error: message });

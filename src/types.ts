@@ -68,6 +68,8 @@ export interface StagedProposal extends CodeProposal {
   generationContext?: string[];
   /** AI's own assessment of the generated code */
   aiReviewSummary?: string;
+  /** Original file content before approval */
+  originalContent?: string | null;
 }
 
 /**

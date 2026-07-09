@@ -6,6 +6,9 @@
 import { Router, Request, Response } from 'express';
 import { createPlan } from '../../src/planner.js';
 import { sendProgress, removeSSEClient } from '../sse.js';
+import { unlink, readFile, writeFile } from 'fs/promises';
+import { join } from 'path';
+import { PLANS_DIR, STAGING_DIR, STAGING_INDEX_FILE } from '../../src/config.js';
 import prisma from '../../src/db.ts';
 
 const router = Router();
@@ -101,6 +104,61 @@ router.get('/plans/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Plan not found' });
     }
     res.json(parseDbPlan(plan));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+/**
+ * DELETE /api/plans/:id
+ * Delete a specific plan from the database and clean up filesystem files
+ */
+router.delete('/plans/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Check if the plan exists
+    const dbPlan = await prisma.plan.findUnique({ where: { id } });
+    if (!dbPlan) {
+      return res.status(404).json({ error: 'Plan not found' });
+    }
+
+    // Delete database plan (proposals cascade delete in database)
+    await prisma.plan.delete({ where: { id } });
+
+    // Clean up plans file if it exists
+    try {
+      const planFilePath = join(PLANS_DIR, `${id}.json`);
+      await unlink(planFilePath);
+    } catch {}
+
+    // Clean up staged proposals for this plan in filesystem
+    try {
+      let indexData: Array<{ id: string; planId: string; filePath: string; createdAt: string }> = [];
+      try {
+        const indexContent = await readFile(STAGING_INDEX_FILE, 'utf-8');
+        indexData = JSON.parse(indexContent);
+      } catch {}
+
+      const proposalsToDelete = indexData.filter(e => e.planId === id);
+      const remainingProposals = indexData.filter(e => e.planId !== id);
+
+      // Unlink proposal JSON files
+      for (const prop of proposalsToDelete) {
+        try {
+          const proposalFilePath = join(STAGING_DIR, `${prop.id}.json`);
+          await unlink(proposalFilePath);
+        } catch {}
+      }
+
+      // Write updated index file
+      await writeFile(STAGING_INDEX_FILE, JSON.stringify(remainingProposals, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Error unlinking staged proposals on filesystem:', e);
+    }
+
+    res.json({ success: true, id });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ error: message });
