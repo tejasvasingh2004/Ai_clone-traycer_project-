@@ -10,6 +10,7 @@ import prisma from '../src/db.ts';
 import plansRouter from './routes/plans.js';
 import proposalsRouter from './routes/proposals.js';
 import repositoriesRouter from './routes/repositories.js';
+import repositoryRoutes from './routes/repositoryRoutes.js';
 import verifyRouter from './routes/verify.js';
 import { registerSSEClient, removeSSEClient, setupSSEResponse } from './sse.js';
 
@@ -32,6 +33,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.use('/api', plansRouter);
 app.use('/api', proposalsRouter);
 app.use('/api', repositoriesRouter);
+app.use('/api', repositoryRoutes);
 app.use('/api', verifyRouter);
 
 // ==================== STATUS ENDPOINT ====================
