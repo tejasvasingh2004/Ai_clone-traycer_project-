@@ -309,6 +309,10 @@ export async function buildContext(
   taskDescription: string,
   projectRoot: string = process.cwd()
 ): Promise<ContextBundle> {
+  if (taskDescription.length > 15000) {
+    throw new Error('Your request plus repository context exceeds the model limit - try a smaller request');
+  }
+
   // Get all project files
   const projectFiles = await getProjectFiles(projectRoot);
   
@@ -322,9 +326,13 @@ export async function buildContext(
       const fullPath = join(projectRoot, file);
       await access(fullPath);
       const content = await readFile(fullPath, 'utf-8');
+      let truncated = content;
+      if (content.length > 1500) {
+        truncated = content.split('\n').slice(0, 40).join('\n') + '\n... (truncated)';
+      }
       relevantFiles.push({
         path: file,
-        content,
+        content: truncated,
         reason: 'Baseline configuration file'
       });
     } catch (error) {
@@ -342,8 +350,8 @@ export async function buildContext(
     .filter(f => f.score > 0)
     .sort((a, b) => b.score - a.score);
   
-  // Add top relevant files (up to 10, excluding baseline files already added)
-  const maxRelevantFiles = 10;
+  // Add top relevant files (up to 5, excluding baseline files already added)
+  const maxRelevantFiles = 5;
   for (const { path } of scoredFiles.slice(0, maxRelevantFiles)) {
     if (baselineFiles.includes(path)) continue;
     
@@ -351,11 +359,11 @@ export async function buildContext(
       const fullPath = join(projectRoot, path);
       const content = await readFile(fullPath, 'utf-8');
       
-      // For dependency files, include only first 50 lines (exports/signatures)
+      // Include top 40 lines if file > 1500 characters
       let fileContent = content;
-      if (content.length > 2000) {
+      if (content.length > 1500) {
         const lines = content.split('\n');
-        fileContent = lines.slice(0, 50).join('\n') + '\n... (truncated)';
+        fileContent = lines.slice(0, 40).join('\n') + '\n... (truncated)';
       }
       
       relevantFiles.push({
@@ -389,7 +397,7 @@ export async function buildContext(
 /**
  * Get context as a formatted string for AI prompts
  * @param context - Context bundle
- * @returns Formatted context string
+ * @returns Formatted context string (max 20,000 characters)
  */
 export function contextToString(context: ContextBundle): string {
   let output = `Task: ${context.taskDescription}\n\n`;
@@ -411,6 +419,11 @@ export function contextToString(context: ContextBundle): string {
     if (imports.length > 0) {
       output += `${file} -> ${imports.join(', ')}\n`;
     }
+  }
+  
+  // Hard cap context to 20,000 characters max
+  if (output.length > 20000) {
+    output = output.substring(0, 20000) + '\n... (context budget reached)';
   }
   
   return output;

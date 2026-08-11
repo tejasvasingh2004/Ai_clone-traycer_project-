@@ -1,0 +1,26 @@
+{
+  "id": "read-repository-1786306916000",
+  "taskName": "Read Repository",
+  "steps": [
+    "Clone the repository to a local machine",
+    "Navigate to the project root directory",
+    "Run 'git status' to check for any pending changes",
+    "Run 'git pull' to fetch the latest changes from the remote repository",
+    "Open the project in a code editor or IDE",
+    "Review the directory structure and files",
+    "Read the README.md file for project information and instructions",
+    "Explore the code in the main directories, including server, env, and inference.py"
+  ],
+  "filesToModify": [],
+  "createdAt": "2026-08-09T20:21:56.001Z",
+  "rationale": "The task is to read the repository, which involves cloning, navigating, and reviewing the project structure and files. No modifications are required.",
+  "dependencyOrder": [],
+  "contextSnapshot": {
+    "projectSummary": "Project: Unknown\nDescription: \nStructure: 24 main directories (benchmark.py(1), Dockerfile(1), env(1), inference.py(1), inference_backup.py(1), openenv.yaml(1), pyproject.toml(1), README.md(1), requirements.txt(1), server(1), test_env.py(1), __pycache__(1), __pycache__\\app.cpython-313.pyc(1), __pycache__\\inference.cpython-313.pyc(1), server\\app.py(1), env\\environment.py(1), env\\grader.py(1), env\\models.py(1), env\\tasks.py(1), env\\__pycache__(1), env\\__pycache__\\environment.cpython-313.pyc(1), env\\__pycache__\\grader.cpython-313.pyc(1), env\\__pycache__\\models.cpython-313.pyc(1), env\\__pycache__\\tasks.cpython-313.pyc(1))\nFiles: 0 TypeScript, 0 JavaScript, 0 test files",
+    "existingPatterns": {
+      "importStyle": "mixed",
+      "namingConvention": "camelCase",
+      "testFramework": "none"
+    }
+  }
+}

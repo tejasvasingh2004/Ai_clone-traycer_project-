@@ -1,0 +1,32 @@
+{
+  "id": "hey-1786452022870",
+  "taskName": "hey",
+  "steps": [
+    "Create a new Python file for the task, e.g., hey.py, to encapsulate the task's functionality.",
+    "Define the task's purpose and create a function to handle it, considering the existing camelCase naming convention.",
+    "Modify the existing files to integrate the new task, starting with the server/app.py file to potentially add routing or API endpoints for the task.",
+    "Update the requirements.txt file if any new dependencies are required for the task.",
+    "Consider adding test cases for the new task, potentially modifying the test_env.py file or creating new test files."
+  ],
+  "filesToModify": [
+    "server/app.py",
+    "requirements.txt",
+    "test_env.py"
+  ],
+  "createdAt": "2026-08-11T12:40:22.870Z",
+  "rationale": "The task 'hey' needs to be integrated into the existing project structure. This involves creating a new file for the task, defining its functionality, and then modifying existing files to incorporate the task. The server/app.py file is a likely candidate for modification to add API endpoints or routing for the task. The requirements.txt file may need updating if new dependencies are introduced. Finally, test cases should be considered to ensure the task's functionality is properly validated.",
+  "dependencyOrder": [
+    "hey.py",
+    "server/app.py",
+    "requirements.txt",
+    "test_env.py"
+  ],
+  "contextSnapshot": {
+    "projectSummary": "Project: Unknown\nDescription: \nStructure: 25 main directories (benchmark.py(1), Dockerfile(1), env(1), inference.py(1), inference_backup.py(1), openenv.yaml(1), pyproject.toml(1), README.md(1), requirements.txt(1), server(1), test.tsx(1), test_env.py(1), __pycache__(1), __pycache__\\app.cpython-313.pyc(1), __pycache__\\inference.cpython-313.pyc(1), server\\app.py(1), env\\environment.py(1), env\\grader.py(1), env\\models.py(1), env\\tasks.py(1), env\\__pycache__(1), env\\__pycache__\\environment.cpython-313.pyc(1), env\\__pycache__\\grader.cpython-313.pyc(1), env\\__pycache__\\models.cpython-313.pyc(1), env\\__pycache__\\tasks.cpython-313.pyc(1))\nFiles: 1 TypeScript, 0 JavaScript, 0 test files",
+    "existingPatterns": {
+      "importStyle": "mixed",
+      "namingConvention": "camelCase",
+      "testFramework": "none"
+    }
+  }
+}

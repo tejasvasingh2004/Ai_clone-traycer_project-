@@ -85,11 +85,14 @@ async function syncStagingToDb(): Promise<void> {
  */
 router.post('/generate', async (req: Request, res: Response) => {
   try {
-    const { planId, operationId } = req.body;
+    const { planId, operationId, repositoryId } = req.body;
 
     if (!planId) {
       return res.status(400).json({ error: 'planId is required' });
     }
+
+    const { resolve } = await import('path');
+    const projectRoot = repositoryId ? resolve('repositories', repositoryId) : process.cwd();
 
     const planPath = join(PLANS_DIR, `${planId}.json`);
 
@@ -106,6 +109,7 @@ router.post('/generate', async (req: Request, res: Response) => {
           taskDescription: dbPlan.taskDescription,
           steps: JSON.parse(dbPlan.steps),
           filesToModify: JSON.parse(dbPlan.filesToModify),
+          filesToDelete: [],
           rationale: dbPlan.rationale,
           dependencyOrder: dbPlan.dependencyOrder ? JSON.parse(dbPlan.dependencyOrder) : undefined,
           contextSnapshot: dbPlan.contextSnapshot ? JSON.parse(dbPlan.contextSnapshot) : undefined,
@@ -119,20 +123,33 @@ router.post('/generate', async (req: Request, res: Response) => {
     }
 
     if (operationId) {
-      sendProgress(operationId, { type: 'progress', message: 'Reading plan...' });
+      sendProgress(operationId, { type: 'ack', operationId, message: 'Generation started' });
     }
 
-    const proposals = await generateCode(planPath);
+    const proposals = await generateCode(
+      planPath,
+      undefined,
+      operationId ? (proposal) => {
+        sendProgress(operationId, { type: 'proposal', proposal });
+      } : undefined,
+      projectRoot
+    );
 
-    // Sync to database
     await syncStagingToDb();
 
+    const responseBody = {
+      proposals: Array.isArray(proposals) ? proposals : [],
+      count: Array.isArray(proposals) ? proposals.length : 0,
+      ...(operationId ? { operationId } : {}),
+    };
+
     if (operationId) {
-      sendProgress(operationId, { type: 'complete', proposals });
+      sendProgress(operationId, { type: 'complete', proposals: responseBody.proposals });
       removeSSEClient(operationId);
     }
 
-    res.json({ proposals, count: proposals.length });
+    // Always return full proposals payload (mirrors /api/plan fix for operationId flows)
+    res.json(responseBody);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     if (req.body.operationId) {
@@ -159,7 +176,7 @@ router.get('/proposals', async (req: Request, res: Response) => {
       filePath: p.filePath,
       newContent: p.newContent,
       diff: p.diff || '',
-      operation: p.operation as 'create' | 'modify',
+      operation: p.operation as 'create' | 'modify' | 'delete',
       approved: p.approved,
       createdAt: p.createdAt.toISOString(),
       generationContext: p.generationContext ? JSON.parse(p.generationContext) : undefined,
@@ -194,7 +211,7 @@ router.get('/proposals/:id', async (req: Request, res: Response) => {
       filePath: p.filePath,
       newContent: p.newContent,
       diff: p.diff || '',
-      operation: p.operation as 'create' | 'modify',
+      operation: p.operation as 'create' | 'modify' | 'delete',
       approved: p.approved,
       createdAt: p.createdAt.toISOString(),
       generationContext: p.generationContext ? JSON.parse(p.generationContext) : undefined,
@@ -215,15 +232,23 @@ router.get('/proposals/:id', async (req: Request, res: Response) => {
  */
 router.post('/approve/:id', async (req: Request, res: Response) => {
   try {
-    await approveProposal(req.params.id, true); // Skip confirmation
+    const { repositoryId } = req.body || {};
+    const { resolve } = await import('path');
+    const projectRoot = repositoryId ? resolve('repositories', repositoryId) : process.cwd();
 
-    // Sync database with updated staging status
-    await syncStagingToDb();
+    await approveProposal(req.params.id, true, projectRoot); // Skip confirmation
+
+    // Update approval status directly in DB for this proposal
+    await prisma.proposal.update({
+      where: { id: req.params.id },
+      data: { approved: true },
+    });
 
     res.json({ success: true, id: req.params.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ error: message });
+    const status = message.includes('not found') || message.includes('Proposal not found') ? 404 : 500;
+    res.status(status).json({ error: message });
   }
 });
 
@@ -233,12 +258,55 @@ router.post('/approve/:id', async (req: Request, res: Response) => {
  */
 router.post('/approve-all', async (req: Request, res: Response) => {
   try {
-    await approveAll();
+    const { repositoryId } = req.body || {};
+    const { resolve } = await import('path');
+    const projectRoot = repositoryId ? resolve('repositories', repositoryId) : process.cwd();
 
-    // Sync database with updated staging status
+    const results = await approveAll(projectRoot);
+
+    // Sync staging filesystem → DB so approved flags and deleted ops are reflected
     await syncStagingToDb();
 
-    res.json({ success: true });
+    // Mark successfully applied proposals as approved in DB (staging sync may miss deleted files still in index)
+    for (const r of results.success) {
+      await prisma.proposal.updateMany({
+        where: { filePath: r.filePath, approved: false },
+        data: { approved: true },
+      });
+    }
+
+    const successFiles = results.success.map(r => r.filePath);
+    const failedFiles = results.failed.map(r => r.filePath);
+    const deletedFiles = results.success.filter(r => r.operation === 'delete').map(r => r.filePath);
+    const modifiedFiles = results.success.filter(r => r.operation !== 'delete').map(r => r.filePath);
+
+    const approvedProposals = await prisma.proposal.findMany({
+      where: { filePath: { in: successFiles }, approved: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: results.failed.length === 0,
+      approved: results.success.length,
+      failed: results.failed.length,
+      files: successFiles,
+      deleted: deletedFiles,
+      modified: modifiedFiles,
+      failures: results.failed.map(r => ({ filePath: r.filePath, error: r.error || 'unknown' })),
+      proposals: approvedProposals.map(p => ({
+        id: p.id,
+        planId: p.planId,
+        filePath: p.filePath,
+        newContent: p.newContent,
+        diff: p.diff || '',
+        operation: p.operation as 'create' | 'modify' | 'delete',
+        approved: p.approved,
+        createdAt: p.createdAt.toISOString(),
+        generationContext: p.generationContext ? JSON.parse(p.generationContext) : undefined,
+        rejectionHistory: p.rejectionHistory ? JSON.parse(p.rejectionHistory) : undefined,
+        originalContent: p.originalContent || null,
+      })),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({ error: message });
@@ -265,8 +333,20 @@ router.post('/reject/:id', async (req: Request, res: Response) => {
     const { rejectProposal: rejectWithFeedback } = await import('../../src/reviewer.js');
     await rejectWithFeedback(proposal.filePath, reason || 'No reason provided');
 
-    // Sync regenerated proposals to database
-    await syncStagingToDb();
+    // Update the regenerated proposal in the DB (targeted sync)
+    const stagedPath = join(STAGING_DIR, `${req.params.id}.json`);
+    const stagedContent = await readFile(stagedPath, 'utf-8');
+    const stagedProp = JSON.parse(stagedContent);
+    await prisma.proposal.update({
+      where: { id: req.params.id },
+      data: {
+        newContent: stagedProp.newContent,
+        diff: stagedProp.diff,
+        generationContext: stagedProp.generationContext ? JSON.stringify(stagedProp.generationContext) : null,
+        rejectionHistory: stagedProp.rejectionHistory ? JSON.stringify(stagedProp.rejectionHistory) : null,
+        // Preserve other fields (approved etc.) unchanged
+      },
+    });
 
     res.json({ success: true, id: req.params.id });
   } catch (error) {
@@ -283,39 +363,38 @@ router.post('/rollback/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Find proposal
-    const proposal = await prisma.proposal.findUnique({ where: { id } });
-    if (!proposal) {
-      return res.status(404).json({ error: 'Proposal not found' });
-    }
-
-    if (!proposal.approved) {
-      return res.status(400).json({ error: 'Proposal is not approved/deployed' });
-    }
-
-    // Rollback filesystem content
-    const filePath = proposal.filePath;
-    if (proposal.operation === 'create') {
-      try {
-        await unlink(filePath);
-      } catch (err) {
-        // Ignore if file doesn't exist
+    // Transactionally validate and update the proposal
+    await prisma.$transaction(async (tx) => {
+      // Verify proposal exists and is approved
+      const proposal = await tx.proposal.findUnique({ where: { id } });
+      if (!proposal) {
+        // Throw to be caught by outer catch and turned into 404
+        throw Object.assign(new Error('Proposal not found'), { status: 404 });
       }
-    } else {
-      if (proposal.originalContent !== null) {
-        await writeFile(filePath, proposal.originalContent, 'utf-8');
+      if (!proposal.approved) {
+        throw Object.assign(new Error('Proposal is not approved/deployed'), { status: 400 });
+      }
+
+      // Rollback filesystem content (outside DB but still within transaction scope)
+      const filePath = proposal.filePath;
+      if (proposal.operation === 'create') {
+        try { await unlink(filePath); } catch {}
       } else {
-        return res.status(400).json({ error: 'Original content was not captured for this proposal, cannot rollback' });
+        if (proposal.originalContent !== null) {
+          await writeFile(filePath, proposal.originalContent, 'utf-8');
+        } else {
+          throw Object.assign(new Error('Original content not captured, cannot rollback'), { status: 400 });
+        }
       }
-    }
 
-    // Update proposal to not approved
-    await prisma.proposal.update({
-      where: { id },
-      data: { approved: false }
+      // Update proposal to not approved
+      await tx.proposal.update({
+        where: { id },
+        data: { approved: false }
+      });
     });
 
-    // Mirror to staging filesystem JSON file
+    // Mirror to staging filesystem JSON file (outside transaction)
     try {
       const proposalPath = join(STAGING_DIR, `${id}.json`);
       const content = await readFile(proposalPath, 'utf-8');
@@ -337,8 +416,9 @@ router.post('/rollback/:id', async (req: Request, res: Response) => {
 
     res.json({ success: true, id });
   } catch (error) {
+    const status = (error as any).status || 500;
     const message = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ error: message });
+    res.status(status).json({ error: message });
   }
 });
 

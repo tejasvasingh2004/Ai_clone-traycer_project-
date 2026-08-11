@@ -1,0 +1,29 @@
+{
+  "id": "hello-1786306735992",
+  "taskName": "hello",
+  "steps": [
+    "Create a new Python file named hello.py in the project root directory",
+    "Define a function named helloWorld in hello.py to print 'Hello, World!' to the console",
+    "Modify the existing requirements.txt file to include any necessary dependencies for the hello.py file",
+    "Update the existing inference.py file to import and use the helloWorld function from hello.py if necessary"
+  ],
+  "filesToModify": [
+    "requirements.txt",
+    "inference.py"
+  ],
+  "createdAt": "2026-08-09T20:18:55.993Z",
+  "rationale": "The hello.py file needs to be created to contain the helloWorld function. The requirements.txt file needs to be updated to include any dependencies required by hello.py. The inference.py file may need to be updated to use the helloWorld function, depending on the project's requirements.",
+  "dependencyOrder": [
+    "hello.py",
+    "requirements.txt",
+    "inference.py"
+  ],
+  "contextSnapshot": {
+    "projectSummary": "Project: Unknown\nDescription: \nStructure: 24 main directories (benchmark.py(1), Dockerfile(1), env(1), inference.py(1), inference_backup.py(1), openenv.yaml(1), pyproject.toml(1), README.md(1), requirements.txt(1), server(1), test_env.py(1), __pycache__(1), __pycache__\\app.cpython-313.pyc(1), __pycache__\\inference.cpython-313.pyc(1), server\\app.py(1), env\\environment.py(1), env\\grader.py(1), env\\models.py(1), env\\tasks.py(1), env\\__pycache__(1), env\\__pycache__\\environment.cpython-313.pyc(1), env\\__pycache__\\grader.cpython-313.pyc(1), env\\__pycache__\\models.cpython-313.pyc(1), env\\__pycache__\\tasks.cpython-313.pyc(1))\nFiles: 0 TypeScript, 0 JavaScript, 0 test files",
+    "existingPatterns": {
+      "importStyle": "mixed",
+      "namingConvention": "camelCase",
+      "testFramework": "none"
+    }
+  }
+}

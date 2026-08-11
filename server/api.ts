@@ -7,27 +7,28 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import prisma from '../src/db.ts';
-import plansRouter from './routes/plans.js';
-import proposalsRouter from './routes/proposals.js';
-import repositoriesRouter from './routes/repositories.js';
-import repositoryRoutes from './routes/repositoryRoutes.js';
-import verifyRouter from './routes/verify.js';
-import { registerSSEClient, removeSSEClient, setupSSEResponse } from './sse.js';
+import plansRouter from './routes/plans.ts';
+import proposalsRouter from './routes/proposals.ts';
+import repositoriesRouter from './routes/repositories.ts';
+import repositoryRoutes from './routes/repositoryRoutes.ts';
+import verifyRouter from './routes/verify.ts';
+import { registerSSEClient, removeSSEClient, setupSSEResponse } from './sse.ts';
 
 const app = express();
-const PORT = process.env.API_PORT || 3001;
+const PORT = process.env.API_PORT ? parseInt(process.env.API_PORT) : 3001;
 
 // Middleware
 app.use(cors({
   origin: 'http://localhost:5173'
 }));
-app.use(express.json());
 
-// Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+// Request timeout middleware (default 5 minutes, configurable via REQUEST_TIMEOUT_MS)
+app.use((req, res, next) => {
+  const timeoutMs = process.env.REQUEST_TIMEOUT_MS ? parseInt(process.env.REQUEST_TIMEOUT_MS) : 5 * 60 * 1000; // 5 minutes
+  req.setTimeout(timeoutMs);
+  next();
 });
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '10mb' }));
 
 // Mount route modules
 app.use('/api', plansRouter);
@@ -35,6 +36,12 @@ app.use('/api', proposalsRouter);
 app.use('/api', repositoriesRouter);
 app.use('/api', repositoryRoutes);
 app.use('/api', verifyRouter);
+
+// Global error handler (must be registered after routes)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('Express Error Handler:', err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
 
 // ==================== STATUS ENDPOINT ====================
 
@@ -113,15 +120,27 @@ async function initDatabase() {
   }
 }
 
+import http from 'http';
+import { setupTerminalWebSocket } from './terminalPty.ts';
+
+export { app };
+
 // ==================== START SERVER ====================
 
-initDatabase()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`🚀 Traycer-mini API server running on http://localhost:${PORT}`);
+let serverInstance: http.Server | null = null;
+
+if (process.env.NODE_ENV !== 'test') {
+  initDatabase()
+    .then(() => {
+      serverInstance = http.createServer(app);
+      setupTerminalWebSocket(serverInstance);
+      serverInstance.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Traycer-mini API server running on http://localhost:${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error('❌ Critical database error on startup. Aborting server launch:', error);
+      process.exit(1);
     });
-  })
-  .catch((error) => {
-    console.error('❌ Critical database error on startup. Aborting server launch:', error);
-    process.exit(1);
-  });
+}
+

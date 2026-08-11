@@ -3,13 +3,14 @@
  * Applies staged code proposals to the actual codebase
  */
 
-import { readFile, writeFile, mkdir, unlink } from 'fs/promises';
+import { readFile, writeFile, mkdir, unlink, rm } from 'fs/promises';
 import { dirname, join } from 'path';
 import chalk from 'chalk';
 import ora from 'ora';
 import prompts from 'prompts';
 import { StagedProposal } from './types.js';
 import { STAGING_DIR, STAGING_INDEX_FILE } from './config.js';
+import { resolveSafeProjectPath } from './utils/pathUtils.js';
 
 /**
  * Interface for staging index entries
@@ -22,6 +23,13 @@ interface StagingIndexEntry {
   approved: boolean;
 }
 
+export interface ApproveResult {
+  filePath: string;
+  operation: 'create' | 'modify' | 'delete';
+  success: boolean;
+  error?: string;
+}
+
 /**
  * Read the staging index file
  * @returns Array of staging index entries
@@ -30,8 +38,7 @@ async function readStagingIndex(): Promise<StagingIndexEntry[]> {
   try {
     const content = await readFile(STAGING_INDEX_FILE, 'utf-8');
     return JSON.parse(content);
-  } catch (error) {
-    // If file doesn't exist, return empty array
+  } catch {
     return [];
   }
 }
@@ -51,20 +58,17 @@ async function writeStagingIndex(index: StagingIndexEntry[]): Promise<void> {
  */
 async function findProposal(filePathOrProposalId: string): Promise<StagingIndexEntry | null> {
   const index = await readStagingIndex();
-  
-  // Try to match by ID first
+
   let entry = index.find(e => e.id === filePathOrProposalId);
-  
-  // If not found, try to match by file path - prefer the latest version
+
   if (!entry) {
     const matchingEntries = index.filter(e => e.filePath === filePathOrProposalId);
     if (matchingEntries.length > 0) {
-      // Sort by createdAt descending to get the latest proposal
       matchingEntries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       entry = matchingEntries[0];
     }
   }
-  
+
   return entry || null;
 }
 
@@ -75,27 +79,25 @@ async function findProposal(filePathOrProposalId: string): Promise<StagingIndexE
  */
 export async function approveProposal(
   filePathOrProposalId: string,
-  skipConfirmation: boolean = false
-): Promise<void> {
-  // Find the proposal
+  skipConfirmation: boolean = false,
+  projectRoot: string = process.cwd()
+): Promise<ApproveResult> {
   const entry = await findProposal(filePathOrProposalId);
-  
+
   if (!entry) {
     throw new Error(`Proposal not found: ${filePathOrProposalId}`);
   }
-  
-  // Read the full proposal
+
   const proposalPath = join(STAGING_DIR, `${entry.id}.json`);
   let proposal: StagedProposal;
-  
+
   try {
     const content = await readFile(proposalPath, 'utf-8');
     proposal = JSON.parse(content);
-  } catch (error) {
+  } catch {
     throw new Error(`Failed to read proposal file: ${proposalPath}`);
   }
-  
-  // Show confirmation prompt unless skipped
+
   if (!skipConfirmation) {
     const response = await prompts({
       type: 'confirm',
@@ -103,59 +105,84 @@ export async function approveProposal(
       message: `Apply this change to ${chalk.cyan(proposal.filePath)} (${chalk.yellow(proposal.operation)})?`,
       initial: true,
     });
-    
+
     if (!response.confirmed) {
       console.log(chalk.yellow('Approval cancelled'));
-      return;
+      return { filePath: proposal.filePath, operation: proposal.operation, success: false, error: 'cancelled' };
     }
   }
-  
-  // Show spinner
-  const spinner = ora(`Applying changes to ${proposal.filePath}...`).start();
-  
-  try {
-    // Ensure target directory exists
-    const targetDir = dirname(proposal.filePath);
-    await mkdir(targetDir, { recursive: true });
 
-    // Read the current content of the file if it exists and we're modifying it
-    let originalContent: string | null = null;
-    if (proposal.operation === 'modify') {
+  const spinner = ora(
+    proposal.operation === 'delete'
+      ? `Deleting ${proposal.filePath}...`
+      : `Applying changes to ${proposal.filePath}...`
+  ).start();
+
+  try {
+    const fullTargetPath = resolveSafeProjectPath(projectRoot, proposal.filePath);
+
+    if (proposal.operation === 'delete') {
       try {
-        originalContent = await readFile(proposal.filePath, 'utf-8');
-      } catch {}
+        await unlink(fullTargetPath);
+      } catch (err: any) {
+        if (err?.code === 'ENOENT') {
+          throw new Error(`Cannot delete ${proposal.filePath}: file does not exist`);
+        }
+        if (err?.code === 'EISDIR' || err?.code === 'EPERM') {
+          try {
+            await rm(fullTargetPath, { recursive: true, force: false });
+          } catch (rmErr: any) {
+            throw new Error(`Failed to delete ${proposal.filePath}: ${rmErr?.message || err.message}`);
+          }
+        } else {
+          throw new Error(`Failed to delete ${proposal.filePath}: ${err?.message || String(err)}`);
+        }
+      }
+    } else {
+      const targetDir = dirname(fullTargetPath);
+      await mkdir(targetDir, { recursive: true });
+
+      let originalContent: string | null = null;
+      if (proposal.operation === 'modify') {
+        try {
+          originalContent = await readFile(fullTargetPath, 'utf-8');
+        } catch {}
+      }
+
+      await writeFile(fullTargetPath, proposal.newContent, 'utf-8');
+
+      if (originalContent !== null) {
+        (proposal as any).originalContent = originalContent;
+      }
     }
-    
-    // Write new content to target file
-    await writeFile(proposal.filePath, proposal.newContent, 'utf-8');
-    
-    // Update proposal status
+
     proposal.approved = true;
-    if (originalContent !== null) {
-      (proposal as any).originalContent = originalContent;
-    }
     await writeFile(proposalPath, JSON.stringify(proposal, null, 2), 'utf-8');
-    
-    // Update staging index
+
     const index = await readStagingIndex();
     const indexEntry = index.find(e => e.id === entry.id);
     if (indexEntry) {
       indexEntry.approved = true;
       await writeStagingIndex(index);
     }
-    
-    // Stop spinner and show success
-    spinner.succeed(chalk.green(`✓ Applied changes to ${proposal.filePath}`));
+
+    if (proposal.operation === 'delete') {
+      spinner.succeed(chalk.green(`✓ Deleted ${proposal.filePath}`));
+    } else {
+      spinner.succeed(chalk.green(`✓ Applied changes to ${proposal.filePath}`));
+    }
+
+    return { filePath: proposal.filePath, operation: proposal.operation, success: true };
   } catch (error) {
     spinner.fail(chalk.red(`Failed to apply changes to ${proposal.filePath}`));
-    
+
     if (error instanceof Error) {
-      if (error.message.includes('EACCES')) {
+      if (error.message.includes('EACCES') || error.message.includes('Permission denied')) {
         throw new Error(`Permission denied: Cannot write to ${proposal.filePath}`);
       } else if (error.message.includes('ENOSPC')) {
         throw new Error('No space left on device');
       } else {
-        throw new Error(`Failed to write file: ${error.message}`);
+        throw error;
       }
     }
     throw error;
@@ -165,43 +192,59 @@ export async function approveProposal(
 /**
  * Approve all pending staged proposals
  */
-export async function approveAll(): Promise<void> {
+export async function approveAll(projectRoot: string = process.cwd()): Promise<{
+  success: ApproveResult[];
+  failed: ApproveResult[];
+}> {
   const index = await readStagingIndex();
   const pendingProposals = index.filter(e => !e.approved);
-  
+
   if (pendingProposals.length === 0) {
     console.log(chalk.yellow('No pending proposals to approve'));
-    return;
+    return { success: [], failed: [] };
   }
-  
+
   console.log(chalk.cyan(`\nApproving ${pendingProposals.length} pending proposal(s)...\n`));
-  
-  const results: { success: string[]; failed: string[] } = {
+
+  const results: { success: ApproveResult[]; failed: ApproveResult[] } = {
     success: [],
     failed: [],
   };
-  
+
   for (const entry of pendingProposals) {
     try {
-      await approveProposal(entry.id, true); // Skip confirmation
-      results.success.push(entry.filePath);
+      const result = await approveProposal(entry.id, true, projectRoot);
+      if (result.success) {
+        results.success.push(result);
+      } else {
+        results.failed.push(result);
+      }
     } catch (error) {
-      results.failed.push(entry.filePath);
+      results.failed.push({
+        filePath: entry.filePath,
+        operation: 'modify',
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
       console.error(chalk.red(`Error approving ${entry.filePath}:`), error instanceof Error ? error.message : error);
     }
   }
-  
-  // Show summary
+
   console.log(chalk.cyan('\n=== Approval Summary ==='));
   console.log(chalk.green(`✓ Successfully applied: ${results.success.length}`));
   if (results.success.length > 0) {
-    results.success.forEach(file => console.log(chalk.green(`  - ${file}`)));
+    results.success.forEach(r => {
+      const verb = r.operation === 'delete' ? 'deleted' : 'applied';
+      console.log(chalk.green(`  - ${r.filePath} (${verb})`));
+    });
   }
-  
+
   if (results.failed.length > 0) {
     console.log(chalk.red(`✗ Failed: ${results.failed.length}`));
-    results.failed.forEach(file => console.log(chalk.red(`  - ${file}`)));
+    results.failed.forEach(r => console.log(chalk.red(`  - ${r.filePath}${r.error ? `: ${r.error}` : ''}`)));
   }
+
+  return results;
 }
 
 /**
@@ -209,23 +252,20 @@ export async function approveAll(): Promise<void> {
  * @param filePathOrProposalId File path or proposal ID to reject
  */
 export async function rejectProposal(filePathOrProposalId: string): Promise<void> {
-  // Find the proposal
   const entry = await findProposal(filePathOrProposalId);
-  
+
   if (!entry) {
     throw new Error(`Proposal not found: ${filePathOrProposalId}`);
   }
-  
+
   try {
-    // Delete the proposal file
     const proposalPath = join(STAGING_DIR, `${entry.id}.json`);
     await unlink(proposalPath);
-    
-    // Update staging index to remove the entry
+
     const index = await readStagingIndex();
     const updatedIndex = index.filter(e => e.id !== entry.id);
     await writeStagingIndex(updatedIndex);
-    
+
     console.log(chalk.yellow(`Rejected proposal for ${entry.filePath}`));
   } catch (error) {
     if (error instanceof Error) {

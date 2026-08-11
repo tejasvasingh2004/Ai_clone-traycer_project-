@@ -1,0 +1,37 @@
+{
+  "id": "execute-1786310009848",
+  "taskName": "execute",
+  "steps": [
+    "Create a main execution file (e.g., main.py) to serve as the entry point for the project.",
+    "Modify server/app.py to handle incoming requests and interact with the environment and models.",
+    "Update env/models.py to include any necessary model implementations for the project.",
+    "Modify env/tasks.py to define tasks that can be executed by the project.",
+    "Update inference.py to handle the execution of tasks and interaction with the models.",
+    "Modify requirements.txt to include any dependencies required for the project."
+  ],
+  "filesToModify": [
+    "server/app.py",
+    "env/models.py",
+    "env/tasks.py",
+    "inference.py",
+    "requirements.txt"
+  ],
+  "createdAt": "2026-08-09T21:13:29.848Z",
+  "rationale": "The existing project structure suggests a need for a clear entry point (main.py) to initiate execution. The server/app.py file needs modification to handle requests, while env/models.py and env/tasks.py require updates to include model implementations and task definitions, respectively. inference.py must be modified to execute tasks and interact with models. Finally, requirements.txt needs updating to include necessary dependencies.",
+  "dependencyOrder": [
+    "requirements.txt",
+    "env/models.py",
+    "env/tasks.py",
+    "inference.py",
+    "server/app.py",
+    "main.py"
+  ],
+  "contextSnapshot": {
+    "projectSummary": "Project: Unknown\nDescription: \nStructure: 24 main directories (benchmark.py(1), Dockerfile(1), env(1), inference.py(1), inference_backup.py(1), openenv.yaml(1), pyproject.toml(1), README.md(1), requirements.txt(1), server(1), test_env.py(1), __pycache__(1), __pycache__\\app.cpython-313.pyc(1), __pycache__\\inference.cpython-313.pyc(1), server\\app.py(1), env\\environment.py(1), env\\grader.py(1), env\\models.py(1), env\\tasks.py(1), env\\__pycache__(1), env\\__pycache__\\environment.cpython-313.pyc(1), env\\__pycache__\\grader.cpython-313.pyc(1), env\\__pycache__\\models.cpython-313.pyc(1), env\\__pycache__\\tasks.cpython-313.pyc(1))\nFiles: 0 TypeScript, 0 JavaScript, 0 test files",
+    "existingPatterns": {
+      "importStyle": "mixed",
+      "namingConvention": "camelCase",
+      "testFramework": "none"
+    }
+  }
+}

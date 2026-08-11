@@ -1,0 +1,29 @@
+{
+  "id": "hey-1786309938504",
+  "taskName": "hey",
+  "steps": [
+    "Create a new Python file for the task, e.g., hey.py, in the project root directory",
+    "Define a function in hey.py to implement the task's functionality",
+    "Import necessary modules and functions in hey.py",
+    "Add a main function or entry point in hey.py to execute the task",
+    "Update requirements.txt if new dependencies are added"
+  ],
+  "filesToModify": [
+    "requirements.txt",
+    "hey.py"
+  ],
+  "createdAt": "2026-08-09T21:12:18.504Z",
+  "rationale": "The task requires creating a new Python file to implement its functionality. The file needs to import necessary modules and have a main function to execute the task. If new dependencies are added, requirements.txt needs to be updated.",
+  "dependencyOrder": [
+    "hey.py",
+    "requirements.txt"
+  ],
+  "contextSnapshot": {
+    "projectSummary": "Project: Unknown\nDescription: \nStructure: 24 main directories (benchmark.py(1), Dockerfile(1), env(1), inference.py(1), inference_backup.py(1), openenv.yaml(1), pyproject.toml(1), README.md(1), requirements.txt(1), server(1), test_env.py(1), __pycache__(1), __pycache__\\app.cpython-313.pyc(1), __pycache__\\inference.cpython-313.pyc(1), server\\app.py(1), env\\environment.py(1), env\\grader.py(1), env\\models.py(1), env\\tasks.py(1), env\\__pycache__(1), env\\__pycache__\\environment.cpython-313.pyc(1), env\\__pycache__\\grader.cpython-313.pyc(1), env\\__pycache__\\models.cpython-313.pyc(1), env\\__pycache__\\tasks.cpython-313.pyc(1))\nFiles: 0 TypeScript, 0 JavaScript, 0 test files",
+    "existingPatterns": {
+      "importStyle": "mixed",
+      "namingConvention": "camelCase",
+      "testFramework": "none"
+    }
+  }
+}

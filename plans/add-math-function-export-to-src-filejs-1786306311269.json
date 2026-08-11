@@ -1,0 +1,25 @@
+{
+  "id": "add-math-function-export-to-src-filejs-1786306311269",
+  "taskName": "Add math function export to src_file.js",
+  "steps": [
+    "Create a new function in src_file.js to handle math operations",
+    "Export the new math function from src_file.js",
+    "Verify the import graph to ensure no existing dependencies are broken"
+  ],
+  "filesToModify": [
+    "src_file.js"
+  ],
+  "createdAt": "2026-08-09T20:11:51.269Z",
+  "rationale": "The task requires adding a new math function to src_file.js. This involves creating a new function and exporting it. Since src_file.js already contains an export, we can simply add the new function and export it. No new files need to be created, and the existing import graph does not need to be modified.",
+  "dependencyOrder": [
+    "src_file.js"
+  ],
+  "contextSnapshot": {
+    "projectSummary": "Project: Unknown\nDescription: \nStructure: 2 main directories (README.md(1), src_file.js(1))\nFiles: 0 TypeScript, 1 JavaScript, 0 test files",
+    "existingPatterns": {
+      "importStyle": "mixed",
+      "namingConvention": "camelCase",
+      "testFramework": "none"
+    }
+  }
+}

@@ -46,12 +46,16 @@ function slugify(text: string): string {
  * @param autoGenerateCode - Whether to automatically generate code after creating the plan
  * @returns Promise<Plan> - The generated plan object
  */
-export async function createPlan(taskDescription: string, autoGenerateCode: boolean = false): Promise<Plan> {
+export async function createPlan(
+  taskDescription: string,
+  autoGenerateCode: boolean = false,
+  projectRoot: string = process.cwd()
+): Promise<Plan> {
   const spinner = ora('Building context...').start();
 
   try {
     // Build context using Context Engine
-    const context = await buildContext(taskDescription);
+    const context = await buildContext(taskDescription, projectRoot);
     
     spinner.text = 'Creating plan...';
 
@@ -68,7 +72,8 @@ export async function createPlan(taskDescription: string, autoGenerateCode: bool
       `- Order steps by dependency (create types/interfaces before using them)\n` +
       `- Consider the existing code patterns: ${context.existingPatterns.importStyle} imports, ${context.existingPatterns.namingConvention} naming\n` +
       `- Check the import graph to avoid breaking existing dependencies\n` +
-      `- Return ONLY valid JSON matching this schema: {taskName: string, steps: string[], filesToModify: string[], rationale: string, dependencyOrder: string[]}\n` +
+      `- Return ONLY valid JSON matching this schema: {taskName: string, steps: string[], filesToModify: string[], filesToDelete: string[], rationale: string, dependencyOrder: string[]}\n` +
+      `- Use filesToDelete for files that should be removed from disk (not modified). Use filesToModify only for create/modify targets.\n` +
       `- Each step should be specific and implementable. File paths should be relative to project root.\n` +
       `- rationale should explain why each file needs changing\n` +
       `- dependencyOrder should list files in the order they should be generated (respecting dependencies)`;
@@ -152,6 +157,7 @@ export async function createPlan(taskDescription: string, autoGenerateCode: bool
       taskName?: string; 
       steps?: string[]; 
       filesToModify?: string[];
+      filesToDelete?: string[];
       rationale?: string;
       dependencyOrder?: string[];
     };
@@ -199,6 +205,7 @@ export async function createPlan(taskDescription: string, autoGenerateCode: bool
       taskName: parsedResponse.taskName,
       steps: parsedResponse.steps,
       filesToModify: allFilesToModify,
+      filesToDelete: Array.isArray(parsedResponse.filesToDelete) ? parsedResponse.filesToDelete : [],
       createdAt: new Date().toISOString(),
       rationale: parsedResponse.rationale,
       dependencyOrder: finalDependencyOrder,

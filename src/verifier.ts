@@ -17,7 +17,7 @@ const execAsync = promisify(exec);
 /**
  * Parse TypeScript compiler output and extract error messages
  */
-function parseTypeScriptErrors(output: string): string[] {
+export function parseTypeScriptErrors(output: string): string[] {
   const errors: string[] = [];
   const lines = output.split('\n');
   
@@ -34,7 +34,7 @@ function parseTypeScriptErrors(output: string): string[] {
 /**
  * Parse ESLint JSON output and extract errors and warnings
  */
-function parseESLintOutput(jsonOutput: string): { errors: string[]; warnings: string[] } {
+export function parseESLintOutput(jsonOutput: string): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
   
@@ -171,7 +171,7 @@ async function getProposalForFile(filePath: string): Promise<string | null> {
  * @param error - Error message
  * @returns Suggested fix or null
  */
-function getSuggestedFix(error: string): string | null {
+export function getSuggestedFix(error: string): string | null {
   if (error.includes('Cannot find module')) {
     return 'This import doesn\'t exist. Run "traycer-mini clean" and regenerate.';
   }

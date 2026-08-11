@@ -13,6 +13,8 @@ export interface Plan {
   steps: string[];
   /** List of file paths to be created/modified */
   filesToModify: string[];
+  /** List of file paths to be deleted from disk */
+  filesToDelete?: string[];
   /** ISO timestamp of when the plan was created */
   createdAt: string;
   /** Unique identifier (e.g., slugified task name + timestamp) */
@@ -42,8 +44,8 @@ export interface CodeProposal {
   diff: string;
   /** Complete new file content */
   newContent: string;
-  /** Whether file is new or existing */
-  operation: 'create' | 'modify';
+  /** Whether file is new, existing, or slated for removal */
+  operation: 'create' | 'modify' | 'delete';
   /** ISO timestamp of when the proposal was created */
   createdAt: string;
 }

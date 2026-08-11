@@ -1,0 +1,38 @@
+{
+  "id": "code-structure-analysis-1786309948530",
+  "taskName": "Code Structure Analysis",
+  "steps": [
+    "Create a high-level diagram to visualize the project structure",
+    "Identify and document the purpose of each main directory",
+    "Analyze the import graph to understand dependencies between files",
+    "Review the existing code patterns, including mixed imports and camelCase naming convention",
+    "Develop a plan to refactor or improve the code structure if necessary"
+  ],
+  "filesToModify": [
+    "README.md",
+    "requirements.txt",
+    "pyproject.toml"
+  ],
+  "createdAt": "2026-08-09T21:12:28.530Z",
+  "rationale": "The existing code structure appears to be complex, with multiple main directories and files. Creating a high-level diagram and documenting the purpose of each directory will help to understand the overall structure. Analyzing the import graph will identify dependencies between files. Reviewing the existing code patterns will help to identify areas for improvement. Modifying the README.md, requirements.txt, and pyproject.toml files will help to document the project structure and dependencies.",
+  "dependencyOrder": [
+    "README.md",
+    "requirements.txt",
+    "pyproject.toml",
+    "env/environment.py",
+    "env/grader.py",
+    "env/models.py",
+    "env/tasks.py",
+    "server/app.py",
+    "inference.py",
+    "inference_backup.py"
+  ],
+  "contextSnapshot": {
+    "projectSummary": "Project: Unknown\nDescription: \nStructure: 24 main directories (benchmark.py(1), Dockerfile(1), env(1), inference.py(1), inference_backup.py(1), openenv.yaml(1), pyproject.toml(1), README.md(1), requirements.txt(1), server(1), test_env.py(1), __pycache__(1), __pycache__\\app.cpython-313.pyc(1), __pycache__\\inference.cpython-313.pyc(1), server\\app.py(1), env\\environment.py(1), env\\grader.py(1), env\\models.py(1), env\\tasks.py(1), env\\__pycache__(1), env\\__pycache__\\environment.cpython-313.pyc(1), env\\__pycache__\\grader.cpython-313.pyc(1), env\\__pycache__\\models.cpython-313.pyc(1), env\\__pycache__\\tasks.cpython-313.pyc(1))\nFiles: 0 TypeScript, 0 JavaScript, 0 test files",
+    "existingPatterns": {
+      "importStyle": "mixed",
+      "namingConvention": "camelCase",
+      "testFramework": "none"
+    }
+  }
+}

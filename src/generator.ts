@@ -14,6 +14,7 @@ import ora from 'ora';
 import { Plan, StagedProposal } from './types.js';
 import { getAIConfig, ensureDirectories, STAGING_DIR, STAGING_INDEX_FILE } from './config.js';
 import { extractCode } from './utils/jsonUtils.js';
+import { resolveFilesToDelete } from './utils/deleteIntent.js';
 
 /**
  * Convert file path to safe filename for staging
@@ -33,7 +34,12 @@ function sanitizeFilename(filePath: string): string {
  * @param rejectionFeedback - Optional feedback from previous rejection
  * @returns Array of staged proposals
  */
-export async function generateCode(planPath: string, rejectionFeedback?: string): Promise<StagedProposal[]> {
+export async function generateCode(
+  planPath: string,
+  rejectionFeedback?: string,
+  progressCallback?: (proposal: StagedProposal) => void,
+  projectRoot: string = process.cwd()
+): Promise<StagedProposal[]> {
   const spinner = ora('Reading plan...').start();
 
   try {
@@ -80,10 +86,54 @@ export async function generateCode(planPath: string, rejectionFeedback?: string)
       anthropicClient = new Anthropic({ apiKey: config.apiKey });
     }
 
-    // 6. Use dependencyOrder if available, otherwise use filesToModify
-    const filesToGenerate = plan.dependencyOrder || plan.filesToModify;
+    // 6. Split delete targets from create/modify targets
+    const filesToDelete = resolveFilesToDelete(plan);
+    const allFiles = plan.dependencyOrder || plan.filesToModify;
+    const filesToGenerate = allFiles.filter(f => !filesToDelete.includes(f));
 
-    // 7. For each file in dependency order
+    // 6a. Create delete proposals (no AI call — deterministic removal intent)
+    for (const filePath of filesToDelete) {
+      spinner.start(chalk.cyan(`Staging deletion for ${filePath}...`));
+
+      try {
+        const targetFullPath = join(projectRoot, filePath);
+        let existingContent = '';
+        try {
+          existingContent = await readFile(targetFullPath, 'utf-8');
+        } catch {
+          throw new Error(`Cannot delete ${filePath}: file does not exist on disk`);
+        }
+
+        const diffContent = createPatch(filePath, existingContent, '', 'existing', 'deleted');
+        const timestamp = Date.now();
+        const sanitizedFilename = sanitizeFilename(filePath);
+        const proposalId = `${plan.id}-${sanitizedFilename}-delete-${timestamp}`;
+
+        const proposal: StagedProposal = {
+          id: proposalId,
+          planId: plan.id,
+          filePath,
+          newContent: '',
+          diff: diffContent,
+          operation: 'delete',
+          approved: false,
+          createdAt: new Date().toISOString(),
+          originalContent: existingContent,
+        };
+
+        const proposalPath = join(STAGING_DIR, `${proposalId}.json`);
+        await writeFile(proposalPath, JSON.stringify(proposal, null, 2), 'utf-8');
+        stagedProposals.push(proposal);
+        if (progressCallback) progressCallback(proposal);
+        spinner.succeed(chalk.green(`✓ Staged deletion for ${filePath}`));
+      } catch (error) {
+        spinner.fail(chalk.red(`✗ Failed to stage deletion for ${filePath}`));
+        console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
+        throw error;
+      }
+    }
+
+    // 7. For each create/modify file in dependency order
     for (const filePath of filesToGenerate) {
       spinner.start(chalk.cyan(`Generating code for ${filePath}...`));
 
@@ -97,12 +147,13 @@ export async function generateCode(planPath: string, rejectionFeedback?: string)
         // Use all steps if no specific steps mention this file
         const stepsToUse = relevantSteps.length > 0 ? relevantSteps : plan.steps;
 
-        // Check if file already exists
+        // Check if file already exists relative to projectRoot
         let fileExists = false;
         let existingContent = '';
+        const targetFullPath = join(projectRoot, filePath);
         try {
-          await access(filePath);
-          existingContent = await readFile(filePath, 'utf-8');
+          await access(targetFullPath);
+          existingContent = await readFile(targetFullPath, 'utf-8');
           fileExists = true;
         } catch {
           fileExists = false;
@@ -245,6 +296,9 @@ export async function generateCode(planPath: string, rejectionFeedback?: string)
 
         // 12. Add proposal to array
         stagedProposals.push(proposal);
+          if (progressCallback) {
+            progressCallback(proposal);
+          }
 
         // 13. Update spinner to show completion
         spinner.succeed(chalk.green(`✓ Generated code for ${filePath}`));

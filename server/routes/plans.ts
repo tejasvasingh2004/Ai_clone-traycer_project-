@@ -33,18 +33,17 @@ function parseDbPlan(dbPlan: any) {
  */
 router.post('/plan', async (req: Request, res: Response) => {
   try {
-    const { taskDescription, autoGenerate = false, operationId } = req.body;
+    const { taskDescription, autoGenerate = false, operationId, repositoryId } = req.body;
 
     if (!taskDescription) {
       return res.status(400).json({ error: 'taskDescription is required' });
     }
 
-    if (operationId) {
-      sendProgress(operationId, { type: 'progress', message: 'Building context...' });
-    }
+    const { resolve } = await import('path');
+    const projectRoot = repositoryId ? resolve('repositories', repositoryId) : process.cwd();
 
     // Existing planner returns a Plan object
-    const plan = await createPlan(taskDescription, autoGenerate);
+    const plan = await createPlan(taskDescription, autoGenerate, projectRoot);
 
     // Persist the plan in the database
     const dbPlan = await prisma.plan.create({
@@ -61,13 +60,17 @@ router.post('/plan', async (req: Request, res: Response) => {
       }
     });
 
-    const parsedPlan = parseDbPlan(dbPlan);
+    const parsedPlan = {
+      ...parseDbPlan(dbPlan),
+      filesToDelete: Array.isArray(plan.filesToDelete) ? plan.filesToDelete : [],
+    };
 
     if (operationId) {
+      // Stream the created plan via SSE and then return the full plan in HTTP response too
       sendProgress(operationId, { type: 'complete', plan: parsedPlan });
       removeSSEClient(operationId);
     }
-
+    // Always return the full plan object so the frontend can render steps/files immediately
     res.json(parsedPlan);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -118,14 +121,15 @@ router.delete('/plans/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Check if the plan exists
-    const dbPlan = await prisma.plan.findUnique({ where: { id } });
-    if (!dbPlan) {
-      return res.status(404).json({ error: 'Plan not found' });
+    // Directly delete the plan; Prisma will throw P2025 if not found
+    try {
+      await prisma.plan.delete({ where: { id } });
+    } catch (err:any) {
+      if (err.code === 'P2025') {
+        return res.status(404).json({ error: 'Plan not found' });
+      }
+      throw err;
     }
-
-    // Delete database plan (proposals cascade delete in database)
-    await prisma.plan.delete({ where: { id } });
 
     // Clean up plans file if it exists
     try {

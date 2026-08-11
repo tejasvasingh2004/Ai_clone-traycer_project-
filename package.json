@@ -12,9 +12,13 @@
     "dev": "tsx src/cli.ts",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "server": "tsx server/api.ts",
+    "server": "tsx watch server/api.ts",
     "dashboard": "cd traycer-mini-frontend && npm run dev",
-    "dev:full": "concurrently \"npm run server\" \"npm run dashboard\""
+    "dev:full": "concurrently \"npm run server\" \"npm run dashboard\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "keywords": [
     "ai",
@@ -44,7 +48,9 @@
     "openai": "^4.0.0",
     "ora": "^8.0.0",
     "pg": "^8.22.0",
-    "prompts": "^2.4.2"
+    "prompts": "^2.4.2",
+    "ws": "^8.18.0",
+    "node-pty": "^1.0.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -53,12 +59,18 @@
     "@types/node": "^20.0.0",
     "@types/pg": "^8.20.0",
     "@types/prompts": "^2.4.9",
+    "@types/ws": "^8.5.13",
+    "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
+    "@vitest/coverage-v8": "^2.1.8",
+    "@playwright/test": "^1.49.1",
     "concurrently": "^8.2.2",
     "eslint": "^8.56.0",
     "prisma": "^7.8.0",
+    "supertest": "^7.0.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^2.1.8"
   }
 }
