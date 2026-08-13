@@ -161,8 +161,10 @@ export async function generateCode(
 
         // Construct system prompt
         const systemPrompt = 
-          'You are an expert TypeScript developer. Generate clean, production-ready code. ' +
-          'Return ONLY the complete file content, no explanations or markdown code blocks.';
+          `You are a senior full-stack engineer and expert TypeScript developer pair-programming on this repository.\n` +
+          `Before writing the code, briefly reason internally about the edge cases, security implications, and how this file fits into the larger architecture.\n` +
+          `Then, generate clean, production-ready code.\n` +
+          `Return ONLY the complete file content, no explanations, no markdown code blocks, and no reasoning output in the final response.`;
 
         // Construct user prompt
         let userPrompt = `Task: ${plan.taskName}\n\n`;

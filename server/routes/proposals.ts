@@ -2,6 +2,7 @@
  * Proposal-related endpoints using Prisma and filesystem fallback
  */
 
+import { verifyAccessToken } from '../middleware/auth.ts';
 import { Router, Request, Response } from 'express';
 import { generateCode } from '../../src/generator.js';
 import { approveProposal, approveAll } from '../../src/approver.js';
@@ -83,7 +84,7 @@ async function syncStagingToDb(): Promise<void> {
  * POST /api/generate
  * Generate code from a plan
  */
-router.post('/generate', async (req: Request, res: Response) => {
+router.post('/generate', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const { planId, operationId, repositoryId } = req.body;
 
@@ -164,7 +165,7 @@ router.post('/generate', async (req: Request, res: Response) => {
  * GET /api/proposals
  * List all staged proposals
  */
-router.get('/proposals', async (req: Request, res: Response) => {
+router.get('/proposals', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const dbProposals = await prisma.proposal.findMany({
       orderBy: { createdAt: 'desc' },
@@ -195,7 +196,7 @@ router.get('/proposals', async (req: Request, res: Response) => {
  * GET /api/proposals/:id
  * Get a specific proposal with diff
  */
-router.get('/proposals/:id', async (req: Request, res: Response) => {
+router.get('/proposals/:id', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const p = await prisma.proposal.findUnique({
       where: { id: req.params.id },
@@ -230,7 +231,7 @@ router.get('/proposals/:id', async (req: Request, res: Response) => {
  * POST /api/approve/:id
  * Approve a proposal
  */
-router.post('/approve/:id', async (req: Request, res: Response) => {
+router.post('/approve/:id', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const { repositoryId } = req.body || {};
     const { resolve } = await import('path');
@@ -256,7 +257,7 @@ router.post('/approve/:id', async (req: Request, res: Response) => {
  * POST /api/approve-all
  * Approve all pending proposals
  */
-router.post('/approve-all', async (req: Request, res: Response) => {
+router.post('/approve-all', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const { repositoryId } = req.body || {};
     const { resolve } = await import('path');
@@ -317,7 +318,7 @@ router.post('/approve-all', async (req: Request, res: Response) => {
  * POST /api/reject/:id
  * Reject a proposal with optional reason
  */
-router.post('/reject/:id', async (req: Request, res: Response) => {
+router.post('/reject/:id', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const { reason } = req.body;
 
@@ -359,7 +360,7 @@ router.post('/reject/:id', async (req: Request, res: Response) => {
  * POST /api/rollback/:id
  * Rollback an approved proposal: restores previous file contents and updates status.
  */
-router.post('/rollback/:id', async (req: Request, res: Response) => {
+router.post('/rollback/:id', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -426,7 +427,7 @@ router.post('/rollback/:id', async (req: Request, res: Response) => {
  * DELETE /api/clean
  * Clear all staged proposals
  */
-router.delete('/clean', async (req: Request, res: Response) => {
+router.delete('/clean', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const files = await readdir(STAGING_DIR);
 

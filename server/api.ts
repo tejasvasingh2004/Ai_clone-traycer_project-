@@ -4,7 +4,7 @@
  */
 
 import 'dotenv/config';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import prisma from '../src/db.ts';
 import plansRouter from './routes/plans.ts';
@@ -12,6 +12,8 @@ import proposalsRouter from './routes/proposals.ts';
 import repositoriesRouter from './routes/repositories.ts';
 import repositoryRoutes from './routes/repositoryRoutes.ts';
 import verifyRouter from './routes/verify.ts';
+import authRouter from './routes/auth.ts';
+import { verifyAccessToken } from './middleware/auth.ts';
 import { registerSSEClient, removeSSEClient, setupSSEResponse } from './sse.ts';
 
 const app = express();
@@ -19,7 +21,13 @@ const PORT = process.env.API_PORT ? parseInt(process.env.API_PORT) : 3001;
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173'
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+  ],
+  credentials: true,
 }));
 
 // Request timeout middleware (default 5 minutes, configurable via REQUEST_TIMEOUT_MS)
@@ -36,12 +44,9 @@ app.use('/api', proposalsRouter);
 app.use('/api', repositoriesRouter);
 app.use('/api', repositoryRoutes);
 app.use('/api', verifyRouter);
+app.use('/api/auth', authRouter);
 
-// Global error handler (must be registered after routes)
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Express Error Handler:', err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
-});
+// Global error handler will be registered at the very end
 
 // ==================== STATUS ENDPOINT ====================
 
@@ -49,7 +54,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
  * GET /api/status
  * Overall system status summary
  */
-app.get('/api/status', async (req, res) => {
+app.get('/api/status', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const planCount = await prisma.plan.count();
     const proposalCount = await prisma.proposal.count();
@@ -92,8 +97,14 @@ app.get('/api/stream/:operationId', (req, res) => {
 
 // ==================== HEALTH CHECK ====================
 
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Global error handler (must be registered after all routes)
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('Express Error Handler:', err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 // ==================== DATABASE INITIALIZATION ====================

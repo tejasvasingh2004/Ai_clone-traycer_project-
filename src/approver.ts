@@ -122,6 +122,13 @@ export async function approveProposal(
     const fullTargetPath = resolveSafeProjectPath(projectRoot, proposal.filePath);
 
     if (proposal.operation === 'delete') {
+      let originalContent: string | null = null;
+      try {
+        originalContent = await readFile(fullTargetPath, 'utf-8');
+      } catch (e) {
+        // file doesn't exist or isn't readable
+      }
+      
       try {
         await unlink(fullTargetPath);
       } catch (err: any) {
@@ -137,6 +144,10 @@ export async function approveProposal(
         } else {
           throw new Error(`Failed to delete ${proposal.filePath}: ${err?.message || String(err)}`);
         }
+      }
+      
+      if (originalContent !== null) {
+        (proposal as any).originalContent = originalContent;
       }
     } else {
       const targetDir = dirname(fullTargetPath);
@@ -273,4 +284,66 @@ export async function rejectProposal(filePathOrProposalId: string): Promise<void
     }
     throw error;
   }
+}
+
+/**
+ * Revert an executed plan using originalContent from proposals
+ * @param planId The ID of the plan to revert
+ * @param projectRoot Project root directory
+ */
+export async function revertPlanExecution(planId: string, projectRoot: string = process.cwd()): Promise<{ success: boolean; reverted: string[]; failed: string[] }> {
+  const index = await readStagingIndex();
+  // Find all approved proposals for this plan, sort by latest first to reverse dependency order
+  const planEntries = index.filter(e => e.planId === planId && e.approved)
+                           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  if (planEntries.length === 0) {
+    return { success: false, reverted: [], failed: ['No approved proposals found for this plan.'] };
+  }
+
+  const reverted: string[] = [];
+  const failed: string[] = [];
+
+  for (const entry of planEntries) {
+    const proposalPath = join(STAGING_DIR, `${entry.id}.json`);
+    let proposal: StagedProposal;
+    try {
+      proposal = JSON.parse(await readFile(proposalPath, 'utf-8'));
+    } catch {
+      failed.push(`Failed to read proposal ${entry.id}`);
+      continue;
+    }
+
+    const fullTargetPath = resolveSafeProjectPath(projectRoot, proposal.filePath);
+    
+    try {
+      if (proposal.operation === 'create') {
+        // Revert create -> delete file
+        await unlink(fullTargetPath);
+      } else if (proposal.operation === 'modify' || proposal.operation === 'delete') {
+        // Revert modify/delete -> restore original content
+        if (proposal.originalContent === undefined || proposal.originalContent === null) {
+          throw new Error('No originalContent saved in proposal');
+        }
+        const targetDir = dirname(fullTargetPath);
+        await mkdir(targetDir, { recursive: true });
+        await writeFile(fullTargetPath, proposal.originalContent, 'utf-8');
+      }
+
+      // Mark proposal as unapproved in the proposal file
+      proposal.approved = false;
+      await writeFile(proposalPath, JSON.stringify(proposal, null, 2), 'utf-8');
+      
+      // Mark as unapproved in index
+      const indexEntry = index.find(e => e.id === entry.id);
+      if (indexEntry) indexEntry.approved = false;
+
+      reverted.push(proposal.filePath);
+    } catch (error) {
+      failed.push(`Failed to revert ${proposal.filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  await writeStagingIndex(index);
+  return { success: failed.length === 0, reverted, failed };
 }

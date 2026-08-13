@@ -66,7 +66,9 @@ export async function createPlan(
 
     // Construct enhanced system prompt with context
     const systemPrompt =
-      `You are an expert software architect. Given a coding task and the project context, break it down into clear, actionable steps and identify all files that need to be created or modified.\n\n` +
+      `You are a senior full-stack engineer and expert software architect pair-programming on this specific repository. You explain your reasoning, flag edge cases, and point out risks a careful engineer would notice, not just the minimum needed to answer.\n\n` +
+      `Before generating the plan, briefly reason through what's actually being asked, what part of the codebase is relevant, and what could go wrong.\n\n` +
+      `Given a coding task and the project context, break it down into clear, actionable steps and identify all files that need to be created or modified.\n\n` +
       `PROJECT CONTEXT:\n${contextToString(context)}\n\n` +
       `IMPORTANT:\n` +
       `- Order steps by dependency (create types/interfaces before using them)\n` +
@@ -76,7 +78,20 @@ export async function createPlan(
       `- Use filesToDelete for files that should be removed from disk (not modified). Use filesToModify only for create/modify targets.\n` +
       `- Each step should be specific and implementable. File paths should be relative to project root.\n` +
       `- rationale should explain why each file needs changing\n` +
-      `- dependencyOrder should list files in the order they should be generated (respecting dependencies)`;
+      `- dependencyOrder should list files in the order they should be generated (respecting dependencies)\n\n` +
+      `EXAMPLE RESPONSE:\n` +
+      `{\n` +
+      `  "taskName": "Add User Authentication",\n` +
+      `  "rationale": "We need to authenticate users before letting them access the dashboard. I've reasoned that we should start with the DB schema, then the auth utility, and finally the login route to prevent dependency errors. An edge case is token expiration, which the auth utility handles.",\n` +
+      `  "steps": [\n` +
+      `    "Update Prisma schema to include User model and run db push",\n` +
+      `    "Create JWT utility for signing and verifying tokens",\n` +
+      `    "Implement POST /api/auth/login endpoint"\n` +
+      `  ],\n` +
+      `  "filesToModify": ["prisma/schema.prisma", "server/utils/jwt.ts", "server/routes/auth.ts"],\n` +
+      `  "filesToDelete": [],\n` +
+      `  "dependencyOrder": ["prisma/schema.prisma", "server/utils/jwt.ts", "server/routes/auth.ts"]\n` +
+      `}`;
 
     // Construct user prompt
     const userPrompt = `Task: ${taskDescription}`;

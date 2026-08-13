@@ -1,3 +1,4 @@
+import { verifyAccessToken } from '../middleware/auth.ts';
 import { Router, Request, Response } from 'express';
 import { resolve, join, relative, dirname } from 'path';
 import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
@@ -65,7 +66,7 @@ function getSafePath(repositoryId: string, relativePath: string): string {
 }
 
 // 1. GET /api/repositories/:id/files - Get file tree
-router.get('/repositories/:id/files', async (req: Request, res: Response) => {
+router.get('/repositories/:id/files', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
     const repoPath = resolve('repositories', id);
@@ -80,7 +81,7 @@ router.get('/repositories/:id/files', async (req: Request, res: Response) => {
 });
 
 // 2. GET /api/repositories/:id/files/* - Get file content
-router.get('/repositories/:id/files/*', async (req: Request, res: Response) => {
+router.get('/repositories/:id/files/*', verifyAccessToken, async (req: Request, res: Response) => {
   const repositoryId = req.params.id;
   const filePath = req.params[0];
   try {
@@ -96,7 +97,7 @@ router.get('/repositories/:id/files/*', async (req: Request, res: Response) => {
 });
 
 // 3. POST /api/repositories/:id/files/* - Save file content (create or overwrite)
-router.post('/repositories/:id/files/*', async (req: Request, res: Response) => {
+router.post('/repositories/:id/files/*', verifyAccessToken, async (req: Request, res: Response) => {
   const repositoryId = req.params.id;
   const filePath = req.params[0];
   const { content } = req.body;
@@ -115,7 +116,7 @@ router.post('/repositories/:id/files/*', async (req: Request, res: Response) => 
 });
 
 // 4. PUT /api/repositories/:id/files/* - Save file content (overwrite)
-router.put('/repositories/:id/files/*', async (req: Request, res: Response) => {
+router.put('/repositories/:id/files/*', verifyAccessToken, async (req: Request, res: Response) => {
   const repositoryId = req.params.id;
   const filePath = req.params[0];
   const { content } = req.body;
@@ -134,7 +135,7 @@ router.put('/repositories/:id/files/*', async (req: Request, res: Response) => {
 });
 
 // 5. POST /api/repositories/:id/terminal - Run terminal command in repository
-router.post('/repositories/:id/terminal', async (req: Request, res: Response) => {
+router.post('/repositories/:id/terminal', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { command } = req.body;
 
@@ -166,7 +167,7 @@ router.post('/repositories/:id/terminal', async (req: Request, res: Response) =>
 const execAsync = promisify(exec);
 
 // 6. POST /api/repositories/:id/create-file — create an empty file at given path
-router.post('/repositories/:id/create-file', async (req: Request, res: Response) => {
+router.post('/repositories/:id/create-file', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { filePath } = req.body;
   if (!filePath) return res.status(400).json({ error: 'filePath is required' });
@@ -186,7 +187,7 @@ router.post('/repositories/:id/create-file', async (req: Request, res: Response)
 });
 
 // 7. POST /api/repositories/:id/create-folder — create a directory at given path
-router.post('/repositories/:id/create-folder', async (req: Request, res: Response) => {
+router.post('/repositories/:id/create-folder', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { folderPath } = req.body;
   if (!folderPath) return res.status(400).json({ error: 'folderPath is required' });
@@ -203,7 +204,7 @@ router.post('/repositories/:id/create-folder', async (req: Request, res: Respons
 });
 
 // 8. GET /api/repositories/:id/git-status — real git status --porcelain
-router.get('/repositories/:id/git-status', async (req: Request, res: Response) => {
+router.get('/repositories/:id/git-status', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
     const repoPath = resolve('repositories', id);
@@ -261,7 +262,7 @@ async function searchFiles(dir: string, rootDir: string, query: string, results:
 }
 
 // 9. POST /api/repositories/:id/search — real repo text search
-router.post('/repositories/:id/search', async (req: Request, res: Response) => {
+router.post('/repositories/:id/search', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { query } = req.body;
 
@@ -284,7 +285,7 @@ router.post('/repositories/:id/search', async (req: Request, res: Response) => {
 });
 
 // 10. POST /api/repositories/:id/git-stage — stage a specific file
-router.post('/repositories/:id/git-stage', async (req: Request, res: Response) => {
+router.post('/repositories/:id/git-stage', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { filePath } = req.body;
   if (!filePath) return res.status(400).json({ error: 'filePath is required' });
@@ -298,7 +299,7 @@ router.post('/repositories/:id/git-stage', async (req: Request, res: Response) =
 });
 
 // 11. POST /api/repositories/:id/git-unstage — unstage a specific file
-router.post('/repositories/:id/git-unstage', async (req: Request, res: Response) => {
+router.post('/repositories/:id/git-unstage', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { filePath } = req.body;
   if (!filePath) return res.status(400).json({ error: 'filePath is required' });
@@ -312,7 +313,7 @@ router.post('/repositories/:id/git-unstage', async (req: Request, res: Response)
 });
 
 // 12. POST /api/repositories/:id/git-discard — discard changes to a file
-router.post('/repositories/:id/git-discard', async (req: Request, res: Response) => {
+router.post('/repositories/:id/git-discard', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { filePath } = req.body;
   if (!filePath) return res.status(400).json({ error: 'filePath is required' });
@@ -331,7 +332,7 @@ router.post('/repositories/:id/git-discard', async (req: Request, res: Response)
 });
 
 // 13. POST /api/repositories/:id/git-commit — stage all + commit
-router.post('/repositories/:id/git-commit', async (req: Request, res: Response) => {
+router.post('/repositories/:id/git-commit', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'Commit message is required' });
@@ -351,7 +352,7 @@ router.post('/repositories/:id/git-commit', async (req: Request, res: Response) 
 });
 
 // 14. POST /api/repositories/:id/git-generate-commit-msg — AI generated commit message
-router.post('/repositories/:id/git-generate-commit-msg', async (req: Request, res: Response) => {
+router.post('/repositories/:id/git-generate-commit-msg', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
     const repoPath = resolve('repositories', id);
@@ -395,7 +396,7 @@ router.post('/repositories/:id/git-generate-commit-msg', async (req: Request, re
 });
 
 // 15. GET /api/repositories/:id/git-file-diff — get file git diff
-router.get('/repositories/:id/git-file-diff', async (req: Request, res: Response) => {
+router.get('/repositories/:id/git-file-diff', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   const filePath = req.query.path as string;
   if (!filePath) return res.status(400).json({ error: 'path parameter is required' });

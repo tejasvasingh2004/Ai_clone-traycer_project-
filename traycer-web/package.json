@@ -1,0 +1,53 @@
+{
+  "name": "traycer-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.116.0",
+    "@google/generative-ai": "^0.24.1",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "chalk": "^6.0.0",
+    "cookie": "^2.0.1",
+    "diff": "^9.0.0",
+    "dotenv": "^17.4.2",
+    "jose": "^6.2.8",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.344.0",
+    "next": "16.3.0",
+    "node-pty": "^1.1.0",
+    "openai": "^7.4.0",
+    "ora": "^9.4.1",
+    "pg": "^8.23.0",
+    "prompts": "^2.4.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tsx": "^4.23.12",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/diff": "^7.0.2",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.19.43",
+    "@types/prompts": "^2.4.9",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.0",
+    "prisma": "^7.9.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

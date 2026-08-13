@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Workspaces (projects/contexts)
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  repositories Repository[]
+  plans        Plan[]
+
+  @@map("workspaces")
+}
+
+// Plans (AI-generated task breakdowns)
+model Plan {
+  id              String   @id
+  workspaceId     String
+  taskName        String
+  taskDescription String?
+  steps           String   // JSON array (stringified)
+  filesToModify   String   // JSON array (stringified)
+  filesToDelete   String?  // JSON array (stringified) - added for BUG-014 fix
+  rationale       String?
+  dependencyOrder String?  // JSON array (stringified)
+  contextSnapshot String?  // JSON object (stringified)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  proposals Proposal[]
+
+  @@index([workspaceId])
+  @@index([createdAt])
+  @@map("plans")
+}
+
+// Code Proposals (staged changes)
+model Proposal {
+  id                String   @id
+  planId            String
+  filePath          String
+  newContent        String   // Full file content
+  diff              String?  // Unified diff
+  operation         String   // 'create', 'modify', or 'delete'
+  approved          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  generationContext String?  // JSON array (stringified)
+  rejectionHistory  String?  // JSON array (stringified)
+  originalContent   String?  // Original file content before approval
+
+  // Relations
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([approved])
+  @@index([createdAt])
+  @@map("proposals")
+}
+
+// Repositories (imported git repos)
+model Repository {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  url         String   @unique
+  githubId    String?
+  description String?
+  language    String?
+  stars       Int      @default(0)
+  isPrivate   Boolean  @default(false)
+  status      String   @default("ready") // 'importing', 'ready', 'error'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("repositories")
+}
+
+// Chat Sessions (for AI assistant)
+model ChatSession {
+  id           String   @id @default(cuid())
+  workspaceId  String?
+  planId       String?  // Links session to a plan (added for BUG-015 fix)
+  repositoryId String?  // Scopes session to a specific repo (added for BUG-015 fix)
+  title        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  messages ChatMessage[]
+
+  @@map("chat_sessions")
+}
+
+// Chat Messages
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String   // 'user' or 'assistant'
+  content   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}
+
+// Users
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // Hashed password
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+// Refresh Tokens
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}

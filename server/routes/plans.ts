@@ -3,6 +3,7 @@
  * Plan-related endpoints using Prisma
  */
 
+import { verifyAccessToken } from '../middleware/auth.ts';
 import { Router, Request, Response } from 'express';
 import { createPlan } from '../../src/planner.js';
 import { sendProgress, removeSSEClient } from '../sse.js';
@@ -31,7 +32,7 @@ function parseDbPlan(dbPlan: any) {
  * POST /api/plan
  * Create a new plan and persist with Prisma
  */
-router.post('/plan', async (req: Request, res: Response) => {
+router.post('/plan', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const { taskDescription, autoGenerate = false, operationId, repositoryId } = req.body;
 
@@ -86,7 +87,7 @@ router.post('/plan', async (req: Request, res: Response) => {
  * GET /api/plans
  * List all saved plans from the database
  */
-router.get('/plans', async (req: Request, res: Response) => {
+router.get('/plans', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const plans = await prisma.plan.findMany({ orderBy: { createdAt: 'desc' } });
     res.json(plans.map(parseDbPlan));
@@ -100,7 +101,7 @@ router.get('/plans', async (req: Request, res: Response) => {
  * GET /api/plans/:id
  * Retrieve a specific plan by ID
  */
-router.get('/plans/:id', async (req: Request, res: Response) => {
+router.get('/plans/:id', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const plan = await prisma.plan.findUnique({ where: { id: req.params.id } });
     if (!plan) {
@@ -117,7 +118,7 @@ router.get('/plans/:id', async (req: Request, res: Response) => {
  * DELETE /api/plans/:id
  * Delete a specific plan from the database and clean up filesystem files
  */
-router.delete('/plans/:id', async (req: Request, res: Response) => {
+router.delete('/plans/:id', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 

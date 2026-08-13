@@ -33,6 +33,7 @@ export interface ContextBundle {
   importGraph: Record<string, string[]>;
   projectSummary: string;
   existingPatterns: ExistingPatterns;
+  projectContextDoc?: string;
 }
 
 /**
@@ -385,12 +386,23 @@ export async function buildContext(
   // Detect existing patterns
   const existingPatterns = await detectPatterns(projectFiles, projectRoot);
   
+  // Load PROJECT_CONTEXT.md if it exists
+  let projectContextDoc: string | undefined = undefined;
+  try {
+    const contextDocPath = join(projectRoot, 'PROJECT_CONTEXT.md');
+    await access(contextDocPath);
+    projectContextDoc = await readFile(contextDocPath, 'utf-8');
+  } catch (error) {
+    // File doesn't exist, ignore
+  }
+  
   return {
     taskDescription,
     relevantFiles,
     importGraph,
     projectSummary,
-    existingPatterns
+    existingPatterns,
+    projectContextDoc
   };
 }
 
@@ -401,6 +413,9 @@ export async function buildContext(
  */
 export function contextToString(context: ContextBundle): string {
   let output = `Task: ${context.taskDescription}\n\n`;
+  if (context.projectContextDoc) {
+    output += `Project Specific Conventions (PROJECT_CONTEXT.md):\n${context.projectContextDoc}\n\n`;
+  }
   output += `Project Summary:\n${context.projectSummary}\n\n`;
   output += `Existing Patterns:\n`;
   output += `- Import Style: ${context.existingPatterns.importStyle}\n`;

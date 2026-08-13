@@ -2,6 +2,7 @@
  * Repository-related endpoints using Prisma and returning snake_case responses
  */
 
+import { verifyAccessToken } from '../middleware/auth.ts';
 import { Router, Request, Response } from 'express';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -38,7 +39,7 @@ function formatRepository(repo: any) {
  * GET /api/repositories
  * List all repositories from the database
  */
-router.get('/repositories', async (req: Request, res: Response) => {
+router.get('/repositories', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const repos = await prisma.repository.findMany({
       orderBy: { createdAt: 'desc' },
@@ -54,7 +55,7 @@ router.get('/repositories', async (req: Request, res: Response) => {
  * POST /api/repositories
  * Directly register a repository record in the database
  */
-router.post('/repositories', async (req: Request, res: Response) => {
+router.post('/repositories', verifyAccessToken, async (req: Request, res: Response) => {
   try {
     const { id, name, url, description, language, status } = req.body;
     const now = new Date().toISOString();
@@ -91,7 +92,7 @@ router.post('/repositories', async (req: Request, res: Response) => {
  * POST /api/import
  * Clone a repository and store metadata in the database
  */
-router.post('/import', async (req: Request, res: Response) => {
+router.post('/import', verifyAccessToken, async (req: Request, res: Response) => {
   let cloneDirectory: string | null = null;
   try {
     let { url } = req.body;
@@ -176,7 +177,7 @@ router.post('/import', async (req: Request, res: Response) => {
  * DELETE /api/repositories/:id
  * Remove a repository both from DB and file system
  */
-router.delete('/repositories/:id', async (req: Request, res: Response) => {
+router.delete('/repositories/:id', verifyAccessToken, async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
     await prisma.repository.delete({ where: { id } });

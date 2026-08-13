@@ -43,6 +43,14 @@ Open your browser and go to:
 http://localhost:5173
 You should see the Traycer-mini dashboard with the sidebar showing: Dashboard, New Plan, Proposals, Verify, History.
 
+Step 6 — Set up PROJECT_CONTEXT.md (Highly Recommended)
+Traycer-mini's Context Engine will automatically read a `PROJECT_CONTEXT.md` file from the root of any repository you import. You should create this file to ground the AI in your project-specific conventions.
+Include things like:
+- Architectural patterns (e.g., "Use Redux for state")
+- Do's and Don'ts (e.g., "Don't use classes, use functional components")
+- Third-party libraries to prefer
+This will significantly improve AI response quality and prevent generic answers.
+
 Alternative: Start Services Separately
 If dev:full has issues, you can start them in two separate terminals:
 
