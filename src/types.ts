@@ -93,9 +93,6 @@ export interface GeneratorConfig {
   temperature: number;
 }
 
-/**
- * Result of code verification checks
- */
 export interface VerificationResult {
   /** Whether verification passed (no errors) */
   success: boolean;
@@ -104,3 +101,5 @@ export interface VerificationResult {
   /** Warnings found (non-blocking) */
   warnings: string[];
 }
+
+export * from './types/index';

@@ -3,7 +3,7 @@ import {
   parseGitStatusFiles,
   comparePlanToExecution,
   formatReviewReport,
-} from '../../traycer-mini-frontend/src/utils/planReview.ts';
+} from '../../src/utils/planReview';
 
 describe('Plan Review Utilities', () => {
   it('parseGitStatusFiles extracts paths from porcelain lines', () => {

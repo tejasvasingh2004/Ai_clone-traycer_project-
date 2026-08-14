@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { api } from '../../traycer-mini-frontend/src/api/client.ts';
+import { api } from '../../src/api/client';
 
 describe('Frontend API Client', () => {
   const originalFetch = global.fetch;
@@ -20,9 +20,9 @@ describe('Frontend API Client', () => {
     });
 
     const result = await api.createPlan('Test task');
-    expect(global.fetch).toHaveBeenCalledWith('/api/plan', expect.objectContaining({
+    expect(global.fetch).toHaveBeenCalledWith('/api/plans', expect.objectContaining({
       method: 'POST',
-      body: JSON.stringify({ taskDescription: 'Test task', autoGenerate: false, operationId: undefined }),
+      body: JSON.stringify({ taskDescription: 'Test task', autoGenerate: false }),
     }));
     expect(result).toEqual(mockPlan);
   });
@@ -35,7 +35,7 @@ describe('Frontend API Client', () => {
     });
 
     const result = await api.getPlans();
-    expect(global.fetch).toHaveBeenCalledWith('/api/plans');
+    expect(global.fetch).toHaveBeenCalledWith('/api/plans', expect.anything());
     expect(result).toEqual(mockPlans);
   });
 

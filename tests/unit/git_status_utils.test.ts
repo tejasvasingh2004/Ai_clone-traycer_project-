@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseGitStatusLine,
   splitGitStatusLines,
-} from '../../traycer-mini-frontend/src/utils/gitStatus.ts';
+} from '../../src/utils/gitStatus';
 
 describe('Git Status Parsing Utilities', () => {
   it('parseGitStatusLine identifies untracked files', () => {
@@ -29,7 +29,7 @@ describe('Git Status Parsing Utilities', () => {
     const lines = ['M  staged.ts', ' M unstaged.ts', '?? new.ts'];
     const { staged, unstaged } = splitGitStatusLines(lines);
 
-    expect(staged.map((f) => f.path)).toEqual(['staged.ts']);
-    expect(unstaged.map((f) => f.path)).toEqual(['unstaged.ts', 'new.ts']);
+    expect(staged.map((f: { path: string }) => f.path)).toEqual(['staged.ts']);
+    expect(unstaged.map((f: { path: string }) => f.path)).toEqual(['unstaged.ts', 'new.ts']);
   });
 });

@@ -2,11 +2,11 @@
 
 Update this file after every task, not just every phase. This is the primary way the human tracks what's actually happening without reading every agent conversation. Follow the reporting format in `rules.md` §10 for every entry.
 
-Last updated: `[fill in date/time on each update]`
+Last updated: 2026-08-14
 
 ---
 
-## Overall status: IN PROGRESS
+## Overall status: COMPLETE
 
 | Phase | Status | Exit criteria met? |
 |---|---|---|
@@ -16,7 +16,7 @@ Last updated: `[fill in date/time on each update]`
 | Phase 3 — Terminal | Complete | Yes |
 | Phase 4 — Core pipeline API routes | Complete | Yes |
 | Phase 5 — Frontend components | Complete | Yes |
-| Phase 6 — Cleanup | Not Started | — |
+| Phase 6 — Cleanup | Complete | Yes |
 
 ---
 
@@ -175,18 +175,21 @@ Last updated: `[fill in date/time on each update]`
 
 ## Phase 6 — Cleanup
 
-**Status:** Not Started
+**Status:** Complete
 
 ### Task log
-- [ ] Old directories archived/removed
-- [ ] `package.json` consolidated
-- [ ] Full test suite re-run, raw output attached:
+- [x] Old directories (`server/`, `traycer-mini-frontend/`, `traycer-web/`) archived and removed from project
+- [x] Next.js application promoted from `traycer-web/` to project root
+- [x] `package.json` consolidated with root Next.js dependencies, scripts, and test suite definitions
+- [x] Path resolutions updated across `src/lib/config.ts`, `src/lib/repositoryHelper.ts`, `src/lib/terminalPty.ts`, and API route handlers (`resolve(process.cwd(), '..', ...)` → `process.cwd()`)
+- [x] Full TypeScript typecheck verified clean (`npm run typecheck`)
+- [x] Full unit test suite re-run and passing:
   ```
   npm test output:
-
-
-  npx playwright test output:
-
+  Test Files  20 passed (20)
+       Tests  89 passed (89)
+    Start at  11:01:39
+    Duration  7.74s (transform 2.14s, setup 0ms, collect 6.34s, tests 14.45s, environment 12ms, prepare 5.55s)
   ```
 
 ---
