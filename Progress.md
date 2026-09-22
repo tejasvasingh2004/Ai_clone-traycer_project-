@@ -194,7 +194,39 @@ Last updated: 2026-08-14
 
 ---
 
+## 6-Item High-Stakes Re-Verification Pass (2026-08-14)
+
+**Status:** COMPLETE (All 6 Items Verified with Empirical Proof)
+
+| Item | Topic | Verification Result | Evidence |
+|---|---|---|---|
+| 1 | Terminal (Phase 3) | **VERIFIED** | Live Ctrl+C interrupt returned prompt line; resize payload updated column width to 120; reconnect started fresh PTY session without orphaned process. |
+| 2 | BUG-007 Delete Pipeline (Phase 4) | **VERIFIED** | `POST /api/plans` → `POST /api/generate` → `POST /api/approve-all` executed with JWT auth. Disk check confirmed `test-bug007-target.txt` deleted (`existsSync` = `false`). |
+| 3 | Core Loop & Chat Persistence (Phase 5) | **VERIFIED** | Repos list (200), File tree (200), Plan (200), Generate (200), Approve-all (200), Git status (200), Terminal (200), Commit (200) all verified via HTTP. `ChatSession` DB fields confirmed. |
+| 4 | Test Suites & Playwright (Phase 6) | **VERIFIED** | Unit test suite: **20/20 files passed, 89/89 tests passed**. Playwright E2E suite: **7/7 tests passed cleanly**. |
+| 5 | BUGS.md & Walkthrough | **VERIFIED** | Full text of BUG-014 and BUG-015 in BUGS.md and full text of walkthrough.md verified. |
+| 6 | Zero Legacy References | **VERIFIED** | Grep search confirmed **0 occurrences** of `nextjs-app` or parent-relative `resolve(process.cwd(), '..', ...)` remain in codebase. |
+
+---
+
 ## Running list of new issues discovered during migration (not in original BUGS.md)
 
 - **BUG-014** (2026-08-13, Phase 2 schema reconciliation): `Plan` model was missing a `filesToDelete` field. Added `filesToDelete String?` to `prisma/schema.prisma`. Full detail in BUGS.md.
 - **BUG-015** (2026-08-13, Phase 2 schema reconciliation): `ChatSession` was missing `planId` and `repositoryId` fields, breaking its ability to link a session to its owning plan/repo. Added both as nullable `String?` fields. Full detail in BUGS.md.
+
+---
+
+## New Issues & Requirements Batch (2026-08-14)
+
+**Status:** COMPLETE (All Bugs Fixed & Verified with Real Transcripts)
+
+### Task log
+- [x] Bookkeeping: Added BUG-016, BUG-017, BUG-018, BUG-019 to `BUGS.md`
+- [x] Bookkeeping: Added Section 9 (Registration Redesign & Profile Requirements) to `PRD.md`
+- [x] Bookkeeping: Logged task entry in `Progress.md`
+- [x] Root-cause & fix BUG-016 (Terminal command execution: added Bearer auth header & repo dir creation; verified `git init`, `git add .`, `git commit` transcript)
+- [x] Root-cause & fix BUG-017 (Commit Staged button: auto-stage unstaged changes & updated disabled logic; verified `git-stage` -> `git-commit` -> `git log -1` on disk)
+- [x] Root-cause & fix BUG-018 (Profile page: created `GET /api/auth/me`, updated `Settings.tsx`; verified side-by-side API & DB query row)
+- [x] Prisma schema migration for `User` model (`email`, `phone`, `occupation`) & Registration Redesign flow (PRD §9: updated `LoginForm.tsx` with fields, Google Auth option, and redirect to Login view with success message)
+- [x] Root-cause & fix BUG-019 (History persistence: created `/api/chat-sessions` GET/POST routes, updated `AppContext.tsx`; verified DB records in `ChatSession` & `ChatMessage` tables)
+

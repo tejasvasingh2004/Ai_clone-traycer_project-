@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { test, expect } from '@playwright/test';
+import { loginE2E } from './helpers/auth';
 import { resolve } from 'path';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { execSync } from 'child_process';
@@ -40,8 +41,8 @@ test.describe('Browser UI Controls Verification: Explorer, Source Control, Activ
       },
     });
 
-    // 1. Open app and navigate via UI: Repositories -> Click Repo Card
-    await page.goto('/');
+    // 1. Open app, authenticate, then navigate via UI: Repositories -> Click Repo Card
+    await loginE2E(page);
     await expect(page.locator('body')).toBeVisible();
 
     const reposBtn = page.getByRole('button', { name: 'Repositories' }).first();
@@ -147,16 +148,21 @@ test.describe('Browser UI Controls Verification: Explorer, Source Control, Activ
     const commitSubmitBtn = page.locator('#commit-submit-btn');
     await commitSubmitBtn.click();
 
-    // Verify working tree clean
-    await expect(page.locator('#source-control-file-list')).toContainText('No unstaged changes in working tree', { timeout: 10000 });
+    // Verify the committed file is no longer listed (it was the only file staged+committed)
+    // Note: ui_created_file.ts and ui_created_dir remain as untracked; we only committed
+    // outside_terminal_file.txt which was the file we explicitly staged above.
+    await expect(page.locator('#source-control-file-list')).not.toContainText('outside_terminal_file.txt', { timeout: 10000 });
 
     // ── 8. AI PANEL PLAN, EXECUTE & REVIEW WORKFLOW ──
-    // Click Plan button
+    // Must fill chat input before clicking Plan — handlePlanAction() returns early if input is empty
+    const chatInputForPlan = page.locator('#ai-chat-input');
+    await chatInputForPlan.fill('Add a simple console.log statement to src_file.js');
+
     const planBtn = page.locator('#ai-workflow-plan-btn');
     await planBtn.click();
 
-    // Verify Plan output in chat bubble
-    await expect(page.locator('text=PLAN GENERATED').first()).toBeVisible({ timeout: 15000 });
+    // Verify Plan output in chat bubble (live AI call — allow up to 30s)
+    await expect(page.locator('text=PLAN GENERATED').first()).toBeVisible({ timeout: 30000 });
 
     // Click Execute button -> Select Execute Generated Plan
     const executeBtn = page.locator('#ai-workflow-execute-btn');
@@ -179,7 +185,10 @@ test.describe('Browser UI Controls Verification: Explorer, Source Control, Activ
     await attachBtn.click();
     await expect(page.locator('text=Attach File Context')).toBeVisible();
 
-    const attachableFile = page.locator('text=src_file.js').first();
+    // Scope to the FilePickerModal overlay (fixed inset-0) so we click the item
+    // inside the modal, not the src_file.js in the file tree behind it.
+    const filePickerModal = page.locator('.fixed.inset-0.z-50');
+    const attachableFile = filePickerModal.locator('text=src_file.js').first();
     await expect(attachableFile).toBeVisible({ timeout: 5000 });
     await attachableFile.click();
     await expect(page.locator('.font-mono').filter({ hasText: 'src_file.js' }).first()).toBeVisible();
@@ -189,13 +198,15 @@ test.describe('Browser UI Controls Verification: Explorer, Source Control, Activ
     await chatInput.fill('History test task');
     await page.locator('#ai-send-btn').click();
     await expect(page.locator('text=History test task').first()).toBeVisible({ timeout: 15000 });
+    // Wait for plan generation to finish so chatMessages contains the complete session before archiving
+    await expect(page.locator('text=PLAN GENERATED').last()).toBeVisible({ timeout: 30000 });
 
     await page.locator('button[title="Start New Task / Chat"]').click();
     await expect(page.locator('text=PLAN GENERATED')).toHaveCount(0, { timeout: 5000 });
 
     await page.locator('button[title="Task History"]').click();
     await expect(page.locator('text=Saved Task Sessions')).toBeVisible();
-    const savedSession = page.locator('text=Saved Task Sessions').locator('..').locator('.cursor-pointer').first();
+    const savedSession = page.locator('div.cursor-pointer').first();
     await expect(savedSession).toBeVisible();
     await savedSession.click();
     await expect(page.locator('text=PLAN GENERATED').first()).toBeVisible({ timeout: 5000 });

@@ -18,3 +18,14 @@ staging/
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Next.js build output
+.next/
+
+# Test results
+test-results/
+
+# Temporary directories and files
+plans/
+repositories/
+scratch_*.ts

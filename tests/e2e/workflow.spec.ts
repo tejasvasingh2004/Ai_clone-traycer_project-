@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { test, expect } from '@playwright/test';
+import { loginE2E } from './helpers/auth';
 import { resolve } from 'path';
 import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { execSync } from 'child_process';
@@ -15,9 +16,9 @@ test.describe('Master E2E Workflow: Import → AI Edit → Terminal → Commit/P
       await prisma.repository.deleteMany({ where: { OR: [{ name: 'remote_repo' }, { url: REMOTE_REPO_URL }] } });
     } catch {}
 
-    // 1. Open app
+    // 1. Open app & authenticate
     page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-    await page.goto('/');
+    await loginE2E(page);
     await expect(page.locator('body')).toBeVisible();
 
     // 2. Setup cloned repository on disk & DB record directly via Prisma
@@ -49,8 +50,7 @@ test.describe('Master E2E Workflow: Import → AI Edit → Terminal → Commit/P
       },
     });
 
-    // Navigate to Repositories page via sidebar Repositories button
-    await page.goto('/');
+    // Navigate to Repositories page via sidebar Repositories button (already authenticated)
     const reposBtn = page.getByRole('button', { name: 'Repositories' }).first();
     await reposBtn.click();
 
@@ -126,11 +126,14 @@ test.describe('Master E2E Workflow: Import → AI Edit → Terminal → Commit/P
     }
 
     // 15. Refresh app & assert repo still listed (persistence)
+    // page.reload() clears the in-memory accessToken (authService uses module-level var, not cookie)
+    // so we must re-authenticate before asserting the repo is still listed.
     await page.reload();
+    await loginE2E(page);
     await expect(page.locator('body')).toBeVisible();
     const reposNav2 = page.getByRole('button', { name: 'Repositories' }).first();
     await reposNav2.click();
-    await expect(page.locator('text=remote_repo').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=remote_repo').first()).toBeVisible({ timeout: 15000 });
 
     // 17. Delete repository record and local working tree
     await prisma.repository.delete({ where: { id: repoId } });

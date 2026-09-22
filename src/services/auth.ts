@@ -11,6 +11,7 @@ export const authService = {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username, password })
     });
     
@@ -25,11 +26,12 @@ export const authService = {
     return data;
   },
 
-  register: async (username: string, password: string) => {
+  register: async (username: string, password: string, email?: string, phone?: string, occupation?: string) => {
     const response = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      credentials: 'include',
+      body: JSON.stringify({ username, password, email, phone, occupation })
     });
     
     if (!response.ok) {
@@ -42,7 +44,7 @@ export const authService = {
 
   logout: async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) {
       console.error('Logout request failed', e);
     } finally {
@@ -53,7 +55,7 @@ export const authService = {
   },
 
   refreshToken: async () => {
-    const response = await fetch('/api/auth/refresh', { method: 'POST' });
+    const response = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
     if (!response.ok) {
       accessToken = null;
       currentUser = null;
@@ -64,3 +66,4 @@ export const authService = {
     return data.accessToken;
   }
 };
+

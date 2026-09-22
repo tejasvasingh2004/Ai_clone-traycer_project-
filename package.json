@@ -55,6 +55,7 @@
     "pg": "^8.23.0",
     "prompts": "^2.4.2",
     "react": "19.2.8",
+    "react-diff-viewer-continued": "^4.4.0",
     "react-dom": "19.2.8",
     "tsx": "^4.23.12",
     "ws": "^8.21.3"

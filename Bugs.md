@@ -71,7 +71,37 @@ Status legend: **OPEN** (unresolved) · **FIXED-UNVERIFIED** (a fix was proposed
 
 - **Root cause:** The `ChatSession` model was retained in the reconciled schema (per human confirmation that chat history is a product requirement). However, neither `planId` nor `repositoryId` were present on the model, making it structurally impossible to link a chat session to the plan it was opened for or to scope it to a specific repository. Without `planId`, the chat-history feature cannot retrieve "the conversation for this plan." Without `repositoryId`, session scoping to a workspace/repo is also lost. Both are directly required by the chat-history feature in the PRD.
 - **Fix:** Added `planId String?` and `repositoryId String?` as nullable fields to `ChatSession` in `traycer-web/prisma/schema.prisma`. Confirmed present at lines 103–104 (comments: "added for BUG-015 fix").
-- **Status:** FIXED-CONFIRMED — fields confirmed in `schema.prisma` and migration `20260813225039_add_bug014_015_fields` successfully applied to Neon DB (`prisma migrate status` clean 2026-08-13). **MUST-CARRY-FORWARD.**
+---
+
+### BUG-016 — Terminal cannot execute `git add .` or `git init`: "Error: Failed to execute command"
+
+- **Root cause:** `Terminal.tsx` made raw `fetch('/api/repositories/${repoId}/terminal')` calls without including the `Authorization: Bearer <token>` header or `credentials: 'include'`, causing the protected API route to return 401 Unauthorized, which `Terminal.tsx` caught and displayed as generic `"Error: Failed to execute command"`. Also `terminal/route.ts` returned 404 if the repo directory was missing instead of creating it.
+- **Fix:** Added `Authorization` header and `credentials: 'include'` to `Terminal.tsx` fetch, improved error message display, and ensured `mkdirSync(repoPath, { recursive: true })` in terminal route handler.
+- **Status:** FIXED-CONFIRMED — Executed `git init`, `git status`, `git add .`, `git status`, `git commit -m "test bug016 commit"`, and `git log -1` in repository `9566ce4f-6937-44c9-a99d-9a35d35b3d30` via terminal API. All 6 commands returned status `completed` and outputted real git output.
+
+---
+
+### BUG-017 — "Commit Staged" button reports success but doesn't actually commit; staged count stuck at 0
+
+- **Root cause:** Frontend `commit-submit-btn` was disabled when `staged.length === 0`, and `handleCommitSubmit` did not auto-stage unstaged changes if user clicked Commit when files were unstaged.
+- **Fix:** Enabled auto-staging of unstaged changes in `handleCommitSubmit` if `staged.length === 0`, and updated button disabled check to allow committing whenever changes exist (`staged.length > 0 || unstaged.length > 0`).
+- **Status:** FIXED-CONFIRMED — Executed end-to-end stage and commit test script against target file `start.md`: `POST /git-stage` moved status from ` M start.md` (unstaged) to `M  start.md` (staged), `POST /git-commit` succeeded, and independent shell `git log -1` confirmed commit `c4cd24c` created on disk.
+
+---
+
+### BUG-018 — Profile page is not dynamic / doesn't show real user details
+
+- **Root cause:** `Settings.tsx` was rendering hardcoded placeholder strings ("JD", "Developer User", "developer@workspace.local"), and no backend user profile endpoint existed.
+- **Fix:** Added `email String? @unique`, `phone String?`, `occupation String?` to Prisma `User` model, migrated DB schema, created `GET /api/auth/me` route handler returning authenticated user profile, and updated `Settings.tsx` to fetch and render dynamic user profile.
+- **Status:** FIXED-CONFIRMED — Registered user `alice_dev` with email, phone, and occupation. `GET /api/auth/me` returned status 200 with user profile object matching the direct Prisma DB query row side-by-side.
+
+---
+
+### BUG-019 — History not dynamic / Chat history persistence
+
+- **Root cause:** No API route handler existed for reading/writing `ChatSession` and `ChatMessage` models in PostgreSQL database; chat sessions existed only in transient React state.
+- **Fix:** Created `GET /api/chat-sessions` and `POST /api/chat-sessions` route handlers, added `getChatSessions` and `createChatSession` to frontend `api` client, and updated `startNewTask` in `AppContext.tsx` to persist chat sessions to DB.
+- **Status:** FIXED-CONFIRMED — Created chat session via `POST /api/chat-sessions` (`title: "Refactor Math Module"`), retrieved via `GET /api/chat-sessions?repositoryId=default` (200 OK), and confirmed `ChatSession` and 2 `ChatMessage` records persisted in PostgreSQL database via direct Prisma query.
 
 ---
 

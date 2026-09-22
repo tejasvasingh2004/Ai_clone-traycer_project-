@@ -10,6 +10,7 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { useApp } from '../../store/AppContext';
+import { authService } from '../../services/auth';
 
 export function Terminal() {
   const {
@@ -68,14 +69,19 @@ export function Terminal() {
         currentInput = '';
         if (cmd) {
           try {
-            // we need to dynamically import api or just use fetch directly to avoid dependency cycles if there is any.
-            // but we can just use the global api since it's already used elsewhere.
-            // wait, we don't have api imported here! Let's just use standard fetch for simplicity.
+            const token = authService.getAccessToken();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) {
+              headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(`/api/repositories/${repoId}/terminal`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
+              credentials: 'include',
               body: JSON.stringify({ command: cmd }),
             });
+
             if (response.ok) {
               const resData = await response.json();
               if (resData.output) {
@@ -83,7 +89,9 @@ export function Terminal() {
                 lines.forEach((line: string) => term.writeln(line.replace(/\r/g, '')));
               }
             } else {
-              term.writeln(`\x1b[31mError: Failed to execute command\x1b[0m`);
+              const errorData = await response.json().catch(() => ({}));
+              const errorMsg = errorData.error || errorData.details || response.statusText || 'Failed to execute command';
+              term.writeln(`\x1b[31mError: ${errorMsg}\x1b[0m`);
             }
           } catch (e: any) {
             term.writeln(`\x1b[31mError: ${e.message}\x1b[0m`);

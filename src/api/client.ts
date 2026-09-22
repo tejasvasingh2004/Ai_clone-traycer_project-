@@ -15,6 +15,7 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
   const config: RequestInit = {
     ...options,
     headers,
+    credentials: 'include',
   };
 
   let response = await fetch(url, config);
@@ -254,6 +255,15 @@ export const api = {
     return response.json();
   },
 
+  // Git Push
+  gitPush: async (repositoryId: string): Promise<{ success: boolean; output: string }> => {
+    const response = await authFetch(`${API_BASE}/repositories/${repositoryId}/git-push`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error((await response.json()).error || 'Failed to push changes');
+    return response.json();
+  },
+
   // AI Generate commit message
   gitGenerateCommitMsg: async (repositoryId: string): Promise<{ message: string }> => {
     const response = await authFetch(`${API_BASE}/repositories/${repositoryId}/git-generate-commit-msg`, {
@@ -264,7 +274,7 @@ export const api = {
   },
 
   // Get file git diff
-  getGitFileDiff: async (repositoryId: string, filePath: string): Promise<{ diff: string }> => {
+  getGitFileDiff: async (repositoryId: string, filePath: string): Promise<{ diff: string; oldValue: string; newValue: string }> => {
     const response = await authFetch(`${API_BASE}/repositories/${repositoryId}/git-file-diff?path=${encodeURIComponent(filePath)}`);
     if (!response.ok) throw new Error('Failed to fetch file diff');
     return response.json();
@@ -385,6 +395,13 @@ export const api = {
     return response.json();
   },
 
+  // Auth User Profile
+  getCurrentUserProfile: async (): Promise<{ user: { id: string; username: string; email: string; phone: string; occupation: string; created_at: string } }> => {
+    const response = await authFetch(`${API_BASE}/auth/me`);
+    if (!response.ok) throw new Error('Failed to fetch user profile');
+    return response.json();
+  },
+
   // SSE
   connectSSE: (operationId: string, onMessage: (data: unknown) => void, onError?: (error: unknown) => void): EventSource => {
     const eventSource = new EventSource(`${API_BASE}/stream/${operationId}`);
@@ -425,5 +442,23 @@ export const api = {
         reject(error instanceof Error ? error : new Error('Failed to open SSE connection'));
       };
     });
+  },
+
+  // Chat Sessions DB Persistence
+  getChatSessions: async (repositoryId?: string): Promise<any[]> => {
+    const query = repositoryId ? `?repositoryId=${repositoryId}` : '';
+    const response = await authFetch(`${API_BASE}/chat-sessions${query}`);
+    if (!response.ok) throw new Error('Failed to fetch chat sessions');
+    return response.json();
+  },
+
+  createChatSession: async (sessionData: { title: string; planId?: string; repositoryId?: string; messages: any[] }): Promise<any> => {
+    const response = await authFetch(`${API_BASE}/chat-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionData),
+    });
+    if (!response.ok) throw new Error('Failed to save chat session');
+    return response.json();
   },
 };

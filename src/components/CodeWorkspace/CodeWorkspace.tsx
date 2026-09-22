@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { StagedProposal } from '../../types/backend';
+import { PanelErrorBoundary } from '../ErrorBoundary/PanelErrorBoundary';
 
 
 interface FileTreeItemProps {
@@ -123,7 +124,8 @@ export function CodeWorkspace() {
   });
 
   return (
-    <div className="h-full flex flex-col bg-[#0f0f15]">
+    <PanelErrorBoundary panelName="CodeWorkspace">
+      <div className="h-full flex flex-col bg-[#0f0f15]">
       {/* Breadcrumb */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-[#0a0a0f]">
         <div className="flex items-center gap-2 text-sm">
@@ -260,6 +262,7 @@ export function CodeWorkspace() {
           <span>LF</span>
         </div>
       </div>
-    </div>
+      </div>
+    </PanelErrorBoundary>
   );
 }

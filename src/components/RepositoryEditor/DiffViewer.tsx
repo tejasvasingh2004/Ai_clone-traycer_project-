@@ -1,18 +1,18 @@
 import React from 'react';
 import { FileDiff } from 'lucide-react';
+import ReactDiffViewer from 'react-diff-viewer-continued';
 
 interface Props {
-  diff: string;
+  oldValue: string;
+  newValue: string;
   fileName: string;
 }
 
-export function DiffViewer({ diff, fileName }: Props) {
-  const lines = diff.split('\n');
-
-  if (!diff) {
+export function DiffViewer({ oldValue, newValue, fileName }: Props) {
+  if (!oldValue && !newValue) {
     return (
       <div className="h-full flex items-center justify-center text-gray-500 bg-[#0f0f15]">
-        No diff available.
+        No content available.
       </div>
     );
   }
@@ -24,29 +24,38 @@ export function DiffViewer({ diff, fileName }: Props) {
         <span className="font-medium text-white truncate">Diff: {fileName}</span>
       </div>
       <div className="flex-1 overflow-auto bg-[#0d0d13] font-mono text-sm leading-6">
-        <div className="min-w-fit">
-          {lines.map((line, i) => {
-            let className = "text-gray-300";
-            let bgColor = "bg-transparent";
-            if (line.startsWith('+') && !line.startsWith('+++')) {
-              className = "text-[#22863a]";
-              bgColor = "bg-[#e6ffed]";
-            } else if (line.startsWith('-') && !line.startsWith('---')) {
-              className = "text-[#cb2431]";
-              bgColor = "bg-[#ffeef0]";
-            } else if (line.startsWith('@@')) {
-              className = "text-blue-400";
-              bgColor = "bg-blue-900/30";
+        <ReactDiffViewer
+          oldValue={oldValue}
+          newValue={newValue}
+          splitView={true}
+          useDarkTheme={true}
+          styles={{
+            variables: {
+              dark: {
+                diffViewerBackground: '#0d0d13',
+                addedBackground: 'rgba(34, 134, 58, 0.2)',
+                addedColor: '#34d058',
+                removedBackground: 'rgba(203, 36, 49, 0.2)',
+                removedColor: '#f97583',
+                wordAddedBackground: 'rgba(34, 134, 58, 0.4)',
+                wordRemovedBackground: 'rgba(203, 36, 49, 0.4)',
+                addedGutterBackground: 'rgba(34, 134, 58, 0.1)',
+                removedGutterBackground: 'rgba(203, 36, 49, 0.1)',
+                gutterBackground: '#0d0d13',
+                gutterBackgroundDark: '#0b0b0f',
+                highlightBackground: '#0b0b0f',
+                highlightGutterBackground: '#0b0b0f',
+                codeFoldGutterBackground: '#12121a',
+                codeFoldBackground: '#12121a',
+                emptyLineBackground: '#0b0b0f',
+                gutterColor: '#8b949e',
+                addedGutterColor: '#8b949e',
+                removedGutterColor: '#8b949e',
+                codeFoldContentColor: '#8b949e',
+              }
             }
-            
-            // Note: whitespace-pre-wrap ensures lines wrap and do not truncate at fixed width.
-            return (
-              <div key={i} className={`px-4 py-0.5 whitespace-pre-wrap break-all ${bgColor} ${className}`}>
-                {line || ' '}
-              </div>
-            );
-          })}
-        </div>
+          }}
+        />
       </div>
     </div>
   );

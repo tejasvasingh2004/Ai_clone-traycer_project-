@@ -23,7 +23,10 @@ export async function POST(
     const repoPath = resolve(projectRoot, 'repositories', id);
     
     if (!existsSync(repoPath)) {
-      return NextResponse.json({ error: 'Repository not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Repository directory not found on disk. Please clone or import the repository first.' },
+        { status: 404 }
+      );
     }
 
     // Using traditional exec callback pattern to capture output streams properly

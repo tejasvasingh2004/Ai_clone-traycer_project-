@@ -19,6 +19,7 @@ import { useApp } from '../../store/AppContext';
 import { ChatMessage } from '../../types';
 import { api } from '../../api/client';
 import { comparePlanToExecution, formatReviewReport } from '../../utils/planReview';
+import { PanelErrorBoundary } from '../ErrorBoundary/PanelErrorBoundary';
 
 /** Extract shell commands from AI message content.
  * Matches: lines starting with $ or ``` bash/sh fenced blocks.
@@ -205,7 +206,12 @@ export function AIAssistant() {
     startNewTask,
     loadTaskSession,
     savedTaskSessions,
+    fetchChatSessions,
   } = useApp();
+
+  useEffect(() => {
+    fetchChatSessions(selectedRepository?.id);
+  }, [selectedRepository?.id, fetchChatSessions]);
 
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -513,7 +519,8 @@ export function AIAssistant() {
   if (!aiPanelOpen) return null;
 
   return (
-    <div className="w-96 bg-[#0a0a0f] border-l border-white/5 flex flex-col h-screen select-none relative">
+    <PanelErrorBoundary panelName="AIAssistant">
+      <div className="w-96 bg-[#0a0a0f] border-l border-white/5 flex flex-col h-screen select-none relative">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-[#050508]">
         <div className="flex items-center gap-2">
@@ -759,7 +766,8 @@ export function AIAssistant() {
           onClose={() => setShowFilePicker(false)}
         />
       )}
-    </div>
+      </div>
+    </PanelErrorBoundary>
   );
 }
 export default AIAssistant;

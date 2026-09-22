@@ -125,11 +125,14 @@ model ChatMessage {
 
 // Users
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String   // Hashed password
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  username   String   @unique
+  password   String   // Hashed password
+  email      String?  @unique
+  phone      String?
+  occupation String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relations
   refreshTokens RefreshToken[]

@@ -137,3 +137,10 @@ Known models (from prior work, likely incomplete):
 - Not rewriting the Planner/Generator/Reviewer/Approver/Verifier's actual AI logic or prompts (separate workstream, see the earlier feature-roadmap/context-engineering research doc for that track).
 - Not implementing multi-agent parallel execution or MCP server exposure (flagged as later-stage in the feature roadmap, out of scope here).
 - Not changing the fundamental Plan → Execute → Review product loop, only its implementation platform.
+
+## 9. Registration Redesign & Profile Requirements
+
+1. **Fields collected at registration:** `username`, `email` (nullable `@unique`), `phone` (nullable), `occupation` (nullable), in addition to `password`. Requires Prisma `User` schema update & database migration.
+2. **Google authentication option:** Offer "Sign up with Google" on registration/login page. Google OAuth handles identity verification, then creates or links a `User` record and issues standard JWT access + refresh tokens.
+3. **Post-registration flow:** After successful registration, user is redirected to the **Login** page with a success notification ("Account created — please log in") rather than auto-logging in immediately.
+4. **Visual design:** Clean form matching app dark theme (`LoginForm.tsx` styling) with the four new fields plus password, and Google OAuth button as a secondary option. `[CONFIRM WITH HUMAN]` on exact reference visual layout screenshot.

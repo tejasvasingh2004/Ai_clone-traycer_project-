@@ -21,6 +21,7 @@ import {
   FileCode,
   Sparkles,
   FileText,
+  UploadCloud,
 } from 'lucide-react';
 import { useApp } from '../../store/AppContext';
 import { FileTree } from './FileTree';
@@ -98,6 +99,7 @@ export function RepositoryEditor() {
     gitUnstageFile,
     gitDiscardFile,
     gitCommit,
+    gitPush,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -113,6 +115,7 @@ export function RepositoryEditor() {
   const [commitMessage, setCommitMessage] = useState('');
   const [isGeneratingCommitMsg, setIsGeneratingCommitMsg] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
 
   const handleContentSearch = async (q: string) => {
     setSearchContentQuery(q);
@@ -148,12 +151,32 @@ export function RepositoryEditor() {
     if (!commitMessage.trim() || !selectedRepository) return;
     setIsCommitting(true);
     try {
+      if (gitFileLists.staged.length === 0 && gitFileLists.unstaged.length > 0) {
+        for (const file of gitFileLists.unstaged) {
+          await gitStageFile(selectedRepository.id, file.path);
+        }
+      }
       await gitCommit(selectedRepository.id, commitMessage.trim());
       setCommitMessage('');
+      await fetchGitStatus(selectedRepository.id);
     } catch (e: any) {
       setExplorerError(e.message || 'Failed to commit');
     } finally {
       setIsCommitting(false);
+    }
+  };
+
+  const handlePushSubmit = async () => {
+    if (!selectedRepository) return;
+    setIsPushing(true);
+    setExplorerError(null);
+    try {
+      await gitPush(selectedRepository.id);
+      alert('Pushed to remote successfully!');
+    } catch (e: any) {
+      setExplorerError(e.message || 'Failed to push to remote');
+    } finally {
+      setIsPushing(false);
     }
   };
 
@@ -296,6 +319,8 @@ export function RepositoryEditor() {
         path: filePath,
         type: 'diff',
         content: diffRes.diff,
+        oldValue: diffRes.oldValue,
+        newValue: diffRes.newValue,
       });
     } catch {}
   };
@@ -655,12 +680,21 @@ export function RepositoryEditor() {
                   <button
                     id="commit-submit-btn"
                     onClick={handleCommitSubmit}
-                    disabled={isCommitting || !commitMessage.trim() || gitFileLists.staged.length === 0}
-                    title={gitFileLists.staged.length === 0 ? "Nothing staged" : ""}
+                    disabled={isCommitting || !commitMessage.trim() || (gitFileLists.staged.length === 0 && gitFileLists.unstaged.length === 0)}
+                    title={gitFileLists.staged.length === 0 && gitFileLists.unstaged.length === 0 ? "No changes to commit" : ""}
                     className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-md text-xs font-medium transition-colors"
                   >
                     <Check className="w-3.5 h-3.5" />
                     <span>Commit Staged</span>
+                  </button>
+                  <button
+                    id="push-submit-btn"
+                    onClick={handlePushSubmit}
+                    disabled={isPushing}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 disabled:opacity-50 border border-purple-500/20 rounded-md text-xs font-medium transition-colors mt-2"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Push to Remote</span>
                   </button>
                 </div>
 
@@ -703,7 +737,7 @@ export function RepositoryEditor() {
         {/* Center Code Editor area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {selectedFile?.type === 'diff' ? (
-            <DiffViewer diff={selectedFile.content} fileName={selectedFile.name} />
+            <DiffViewer oldValue={selectedFile.oldValue} newValue={selectedFile.newValue} fileName={selectedFile.name} />
           ) : (
             <FileEditor />
           )}

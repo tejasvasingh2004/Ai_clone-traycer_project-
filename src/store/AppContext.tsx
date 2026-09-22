@@ -112,8 +112,10 @@ interface AppContextType extends AppState {
   gitUnstageFile: (repositoryId: string, filePath: string) => Promise<void>;
   gitDiscardFile: (repositoryId: string, filePath: string) => Promise<void>;
   gitCommit: (repositoryId: string, message: string) => Promise<{ success: boolean; output: string }>;
+  gitPush: (repositoryId: string) => Promise<{ success: boolean; output: string }>;
   startNewTask: () => void;
   loadTaskSession: (sessionId: string) => void;
+  fetchChatSessions: (repositoryId?: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -438,14 +440,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const fetchRepositories = useCallback(async () => {
     try {
-      const response = await fetch('/api/repositories');
-      if (response.ok) {
-        const data = await response.json();
-        console.log('APP_CONTEXT REPOS FETCHED:', data);
-        setState(prev => ({ ...prev, repositories: data }));
-      } else {
-        console.error('APP_CONTEXT REPOS FETCH FAILED STATUS:', response.status);
-      }
+      // BUG-FIX: use api.getRepositories() (authFetch) instead of bare fetch so the
+      // Bearer token is included. Plain fetch('/api/repositories') always got 401
+      // after login because authService stores the token in module memory, not cookies.
+      const data = await api.getRepositories();
+      setState(prev => ({ ...prev, repositories: data }));
     } catch (e) {
       console.error('Failed to fetch repositories', e);
     }
@@ -653,6 +652,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return res;
   }, []);
 
+  const gitPush = useCallback(async (repositoryId: string) => {
+    return api.gitPush(repositoryId);
+  }, []);
+
   const startNewTask = useCallback(() => {
     setState(prev => {
       // Archive current session if it has messages
@@ -665,6 +668,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           messages: prev.chatMessages,
           plan: prev.lastGeneratedPlan,
         };
+
+        // Persist to DB asynchronously
+        api.createChatSession({
+          title: sessionName,
+          planId: prev.lastGeneratedPlan?.id,
+          repositoryId: prev.selectedRepository?.id,
+          messages: prev.chatMessages,
+        }).catch(err => console.error('Failed to save session to DB:', err));
+
         return {
           ...prev,
           chatMessages: [],
@@ -694,8 +706,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const fetchChatSessions = useCallback(async (repositoryId?: string) => {
+    try {
+      const dbSessions = await api.getChatSessions(repositoryId);
+      const mappedSessions = dbSessions.map((s: any) => ({
+        id: s.id,
+        name: s.title || 'Task Session',
+        timestamp: s.createdAt,
+        messages: (s.messages || []).map((m: any) => ({
+          id: m.id,
+          session_id: m.sessionId,
+          role: m.role,
+          content: m.content,
+          timestamp: m.createdAt,
+        })),
+        plan: null,
+      }));
+      setState(prev => ({ ...prev, savedTaskSessions: mappedSessions }));
+    } catch (err) {
+      console.error('Failed to fetch chat sessions from DB:', err);
+    }
+  }, []);
+
   const fetchGitStatus = useCallback(async (repositoryId: string) => {
     try {
+      fetchChatSessions(repositoryId);
       const status = await api.getGitStatus(repositoryId);
       setState(prev => ({ ...prev, gitStatus: status }));
       return status;
@@ -703,7 +738,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Failed to fetch git status:', error);
       return null;
     }
-  }, []);
+  }, [fetchChatSessions]);
 
   const createFile = useCallback(async (repositoryId: string, filePath: string) => {
     await api.createFile(repositoryId, filePath);
@@ -786,8 +821,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     gitUnstageFile,
     gitDiscardFile,
     gitCommit,
+    gitPush,
     startNewTask,
     loadTaskSession,
+    fetchChatSessions,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
